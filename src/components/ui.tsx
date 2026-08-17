@@ -1,0 +1,137 @@
+import type { ReactNode } from 'react'
+
+export function Chip({
+  children,
+  selected,
+  dashed,
+  onClick,
+}: {
+  children: ReactNode
+  selected?: boolean
+  dashed?: boolean
+  onClick?: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`whitespace-nowrap rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
+        selected
+          ? 'border-rust text-rust bg-rust/10'
+          : dashed
+            ? 'border-dashed border-rust/60 text-rust'
+            : 'border-line text-cream-soft'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+export function IconBtn({
+  children,
+  onClick,
+  dot,
+  ariaLabel,
+}: {
+  children: ReactNode
+  onClick?: () => void
+  dot?: boolean
+  ariaLabel?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className="relative flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line bg-surface text-cream"
+    >
+      {children}
+      {dot && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-bg bg-rust-solid" />}
+    </button>
+  )
+}
+
+export function PrimaryButton({
+  children,
+  onClick,
+  type = 'button',
+  disabled,
+  className = '',
+}: {
+  children: ReactNode
+  onClick?: () => void
+  type?: 'button' | 'submit'
+  disabled?: boolean
+  className?: string
+}) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex items-center justify-center gap-2 rounded-[3px] border border-rust-solid bg-rust-solid px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-bg disabled:opacity-50 ${className}`}
+    >
+      {children}
+    </button>
+  )
+}
+
+export function OutlineButton({
+  children,
+  onClick,
+  className = '',
+}: {
+  children: ReactNode
+  onClick?: () => void
+  className?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center justify-center gap-2 rounded-[3px] border border-cream px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-cream ${className}`}
+    >
+      {children}
+    </button>
+  )
+}
+
+export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  const { className = '', ...rest } = props
+  return (
+    <input
+      {...rest}
+      className={`w-full rounded-[10px] border border-line bg-surface px-3.5 py-2.5 text-sm text-cream placeholder:text-cream-soft/70 focus:outline-none focus:border-rust ${className}`}
+    />
+  )
+}
+
+export function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const { className = '', ...rest } = props
+  return (
+    <textarea
+      {...rest}
+      className={`w-full resize-none rounded-[10px] border border-line bg-surface px-3.5 py-2.5 text-sm text-cream placeholder:text-cream-soft/70 focus:outline-none focus:border-rust ${className}`}
+    />
+  )
+}
+
+export function FormLabel({ children }: { children: ReactNode }) {
+  return <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-cream-soft">{children}</label>
+}
+
+export function GroupLabel({ children }: { children: ReactNode }) {
+  return <div className="px-[18px] pb-2 pt-[18px] text-[10.5px] font-bold uppercase tracking-wider text-rust">{children}</div>
+}
+
+export function RowCard({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
+  return (
+    <div
+      onClick={onClick}
+      className={`mx-[18px] mb-2 flex items-center justify-between rounded-[10px] border border-line bg-surface px-4 py-3.5 text-[13.5px] text-cream ${onClick ? 'cursor-pointer' : ''}`}
+    >
+      {children}
+    </div>
+  )
+}
