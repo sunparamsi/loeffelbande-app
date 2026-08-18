@@ -54,3 +54,40 @@ input, textarea, select, button {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ---- App-Start: Splash-Animation ---- */
+@keyframes splash-mark-in {
+  0% { opacity: 0; transform: scale(0.72); }
+  60% { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes splash-text-in {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes splash-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes splash-bubble {
+  0% { opacity: 0; transform: translateY(0) scale(0.5); }
+  35% { opacity: 0.95; transform: translateY(-15%) scale(1); }
+  75% { opacity: 0.55; transform: translateY(-55%) scale(0.85); }
+  100% { opacity: 0; transform: translateY(-80%) scale(0.55); }
+}
+.splash-mark {
+  animation: splash-mark-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.splash-text {
+  opacity: 0;
+  animation: splash-text-in 0.5s ease-out 0.25s forwards;
+}
+.splash-exit {
+  animation: splash-fade-out 0.35s ease-in forwards;
+}
+.splash-bubble {
+  opacity: 0;
+  animation-name: splash-bubble;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}

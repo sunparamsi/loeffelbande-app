@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { repo } from './data'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import BottomNav from './components/BottomNav'
+import SplashScreen from './components/SplashScreen'
 import StartPage from './pages/StartPage'
 import RecipeListPage from './pages/RecipeListPage'
 import RecipeDetailPage from './pages/RecipeDetailPage'
@@ -16,6 +18,33 @@ import SettingsPage from './pages/SettingsPage'
 import OnboardingPage from './pages/OnboardingPage'
 import SharedRecipePage from './pages/SharedRecipePage'
 import { useOnline } from './lib/useOnline'
+
+const SPLASH_MIN_MS = 700
+const SPLASH_EXIT_MS = 350
+
+/** Zeigt den Splash-Screen mind. SPLASH_MIN_MS lang (fühlt sich wie eine
+ * kurze Öffnen-Animation an, statt bei schnellem Laden nur zu blitzen) und
+ * blendet ihn dann sanft aus, sobald `ready` true wird. */
+function useSplashGate(ready: boolean) {
+  const [startedAt] = useState(() => performance.now())
+  const [visible, setVisible] = useState(true)
+  const [exiting, setExiting] = useState(false)
+
+  useEffect(() => {
+    if (!ready || exiting) return
+    const wait = Math.max(0, SPLASH_MIN_MS - (performance.now() - startedAt))
+    const t = setTimeout(() => setExiting(true), wait)
+    return () => clearTimeout(t)
+  }, [ready, exiting, startedAt])
+
+  useEffect(() => {
+    if (!exiting) return
+    const t = setTimeout(() => setVisible(false), SPLASH_EXIT_MS)
+    return () => clearTimeout(t)
+  }, [exiting])
+
+  return { visible, exiting }
+}
 
 function Shell() {
   const online = useOnline()
@@ -36,16 +65,14 @@ function Shell() {
 
 function Gate() {
   const { authState, loading } = useAuth()
+  const { visible: showSplash, exiting } = useSplashGate(!loading)
 
-  if (loading) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-bg text-cream-soft text-sm">Lädt…</div>
-    )
-  }
-  if (repo.mode === 'cloud' && !authState?.loggedIn) {
-    return <OnboardingPage />
-  }
-  return <Shell />
+  return (
+    <>
+      {showSplash && <SplashScreen exiting={exiting} />}
+      {!loading && (repo.mode === 'cloud' && !authState?.loggedIn ? <OnboardingPage /> : <Shell />)}
+    </>
+  )
 }
 
 export default function App() {

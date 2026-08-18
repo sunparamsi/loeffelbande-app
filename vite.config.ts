@@ -20,7 +20,7 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon-32.png', 'favicon-64.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'Löffelbande',
         short_name: 'Löffelbande',

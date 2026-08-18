@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { BellIcon, GearIcon, LogoMarkIcon } from '../icons'
+import { BellIcon, GearIcon } from '../icons'
 import { IconBtn } from './ui'
 import { repo } from '../data'
 import { useAuth } from '../lib/useAuth'
@@ -11,16 +11,13 @@ export function LogoBadge({ size = 30 }: { size?: number }) {
   useEffect(() => {
     repo.getSettings().then((s) => setLogo(s.logoDataUrl))
   }, [])
-  if (logo) {
-    return <img src={logo} alt="Logo" style={{ width: size, height: size }} className="rounded-[10px] object-cover flex-shrink-0" />
-  }
   return (
-    <div
+    <img
+      src={logo ?? '/pwa-192x192.png'}
+      alt="Logo"
       style={{ width: size, height: size }}
-      className="flex flex-shrink-0 items-center justify-center rounded-[10px] bg-[color-mix(in_srgb,var(--color-rust)_14%,white)] text-rust"
-    >
-      <LogoMarkIcon width={size * 0.5} height={size * 0.5} strokeWidth={2} />
-    </div>
+      className="rounded-[10px] object-cover flex-shrink-0"
+    />
   )
 }
 
