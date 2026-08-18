@@ -3,8 +3,20 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { repo } from '../data'
 import type { Recipe } from '../db/types'
 import { timeLabel } from '../components/RecipeCard'
-import { Chip, PrimaryButton, OutlineButton } from '../components/ui'
-import { ArrowLeftIcon, HeartIcon, HeartOutlineIcon, EditIcon, ShareIcon, PlayIcon, InstagramIcon, LinkIcon, CheckIcon } from '../icons'
+import { PrimaryButton, OutlineButton } from '../components/ui'
+import {
+  ArrowLeftIcon,
+  BookmarkIcon,
+  BookmarkFilledIcon,
+  EditIcon,
+  ShareIcon,
+  PlayIcon,
+  InstagramIcon,
+  LinkIcon,
+  ClockIcon,
+  LevelIcon,
+  LeafIcon,
+} from '../icons'
 import type { Member } from '../data/repo'
 
 export default function RecipeDetailPage() {
@@ -83,97 +95,115 @@ export default function RecipeDetailPage() {
   return (
     <div className="pb-8">
       <div
-        className="relative flex h-[220px] items-end"
+        className="relative flex h-[280px] items-end"
         style={{
-          background: img ? `url(${img}) center/cover` : 'linear-gradient(160deg,#8a5638,#3f2416)',
+          background: img ? `url(${img}) center/cover` : 'linear-gradient(150deg,#f3d3ba,#dd9a6c)',
         }}
       >
         <div
           className="absolute inset-0"
-          style={{ background: 'linear-gradient(to top, rgba(10,7,5,0.92) 0%, rgba(10,7,5,0.35) 50%, rgba(10,7,5,0.05) 75%)' }}
+          style={{ background: 'linear-gradient(to top, rgba(15,9,4,0.75) 0%, rgba(15,9,4,0.15) 45%, transparent 62%)' }}
         />
         <button
           onClick={() => navigate(-1)}
-          className="absolute left-4 top-4 z-10 flex h-[34px] w-[34px] items-center justify-center rounded-full bg-black/40 text-cream"
+          className="absolute left-4 top-4 z-10 flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white/92 text-cream shadow-card-sm"
         >
-          <ArrowLeftIcon />
+          <ArrowLeftIcon width={16} height={16} />
         </button>
-        <div className="absolute right-4 top-4 z-10 flex gap-2">
-          <button onClick={toggleFav} className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-black/40 text-rust">
-            {recipe.favorite ? <HeartIcon width={16} height={16} /> : <HeartOutlineIcon width={16} height={16} />}
-          </button>
-          <button
-            onClick={() => navigate(`/rezepte/${recipe.id}/bearbeiten`)}
-            className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-black/40 text-cream"
-          >
-            <EditIcon width={16} height={16} />
-          </button>
-        </div>
-        <div className="relative z-10 w-full px-[18px] pb-5 pt-5">
-          <div className="text-[10.5px] font-bold uppercase tracking-wider text-rust">
+        <button
+          onClick={() => navigate(`/rezepte/${recipe.id}/bearbeiten`)}
+          className="absolute right-4 top-4 z-10 flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white/92 text-cream shadow-card-sm"
+        >
+          <EditIcon width={16} height={16} />
+        </button>
+        <div className="relative z-10 w-full px-[18px] pb-[26px]">
+          <div className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: '#ffcfa8' }}>
             {[recipe.category, recipe.cuisine].filter(Boolean).join(' · ')}
           </div>
-          <div className="mt-1.5 text-[26px] font-extrabold leading-tight tracking-tight text-cream">{recipe.title}</div>
+          <div className="mt-1.5 text-[25px] font-extrabold leading-tight tracking-tight text-white">{recipe.title}</div>
         </div>
       </div>
 
-      <div className="px-[18px] pt-5">
-        <div className="flex border-y border-line py-3.5">
-          <MetaCol label="Zeit" value={timeLabel(recipe) ?? '–'} />
-          <MetaCol label="Portionen" value={recipe.servings ? String(recipe.servings) : '–'} />
-          <MetaCol label="Level" value={recipe.difficulty ?? '–'} />
+      <div className="relative -mt-[22px] rounded-t-[22px] bg-bg px-[18px] pb-2 pt-[22px]">
+        <button
+          onClick={toggleFav}
+          className={`absolute -top-5 right-[18px] flex items-center gap-1.5 rounded-full bg-surface px-4 py-2.5 text-xs font-bold shadow-card ${recipe.favorite ? 'text-rust' : 'text-cream'}`}
+        >
+          {recipe.favorite ? <BookmarkFilledIcon width={15} height={15} /> : <BookmarkIcon width={15} height={15} />}
+          {recipe.favorite ? 'Gespeichert' : 'Speichern'}
+        </button>
+
+        <div className="mb-4 mt-1 flex gap-[18px]">
+          <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-cream-soft">
+            <ClockIcon width={15} height={15} className="text-rust" />
+            {timeLabel(recipe) ?? '–'}
+          </div>
+          <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-cream-soft">
+            <LevelIcon width={15} height={15} className="text-rust" />
+            {recipe.difficulty ?? '–'}
+          </div>
         </div>
 
         {recipe.tags.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-1.5">
+          <div className="mb-1.5 flex flex-wrap gap-1.5">
             {recipe.tags.map((t) => (
-              <Chip key={t}>{t}</Chip>
+              <div key={t} className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-cream-soft">
+                <LeafIcon width={12} height={12} className="text-sage" />
+                {t}
+              </div>
             ))}
           </div>
         )}
 
-        {recipe.description && <p className="mt-4 text-[13.5px] leading-relaxed text-cream-soft">{recipe.description}</p>}
+        {recipe.description && <p className="mt-3.5 text-[13.5px] leading-relaxed text-cream-soft">{recipe.description}</p>}
 
-        <h2 className="mt-6 mb-3 text-[17px] font-bold text-cream">Zutaten</h2>
-        {recipe.ingredients.map((ing) => (
-          <div key={ing.id} className="flex items-center gap-2.5 border-b border-line py-2.5 text-[13.5px] text-cream">
+        <div className="mb-3 mt-[22px] flex items-center justify-between">
+          <h2 className="text-[17px] font-extrabold text-cream">Zutaten</h2>
+          {recipe.servings ? (
+            <div className="rounded-lg bg-surface-2 px-2.5 py-1 text-[11.5px] font-bold text-cream-soft">{recipe.servings} Portionen</div>
+          ) : null}
+        </div>
+        {recipe.ingredients.map((ing) => {
+          const isChecked = checked.has(ing.id)
+          return (
             <button
+              key={ing.id}
               onClick={() => toggleIngredient(ing.id)}
-              className={`flex h-[17px] w-[17px] flex-shrink-0 items-center justify-center rounded-[5px] border ${checked.has(ing.id) ? 'border-sage bg-sage text-bg' : 'border-rust'}`}
+              className="flex w-full items-center gap-3 py-2 text-left text-[13.5px] text-cream"
             >
-              {checked.has(ing.id) && <CheckIcon width={11} height={11} />}
+              <span className={`mx-[3px] h-[7px] w-[7px] flex-shrink-0 rounded-full ${isChecked ? 'bg-sage' : 'bg-cream-soft/50'}`} />
+              <span className="min-w-[58px] font-semibold text-cream-soft" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                {ing.quantity ? `${ing.quantity} ${ing.unit}` : ing.unit}
+              </span>
+              <span className={isChecked ? 'text-cream-soft line-through' : ''}>
+                {ing.name}
+                {ing.note && <span className="text-cream-soft"> ({ing.note})</span>}
+              </span>
             </button>
-            <div className="min-w-[62px] font-medium text-cream-soft">
-              {ing.quantity ? `${ing.quantity} ${ing.unit}` : ing.unit}
-            </div>
-            <div className={checked.has(ing.id) ? 'line-through text-cream-soft' : ''}>
-              {ing.name}
-              {ing.note && <span className="text-cream-soft"> ({ing.note})</span>}
-            </div>
-          </div>
-        ))}
+          )
+        })}
         {recipe.ingredients.length === 0 && <div className="text-[12.5px] text-cream-soft">Keine Zutaten hinterlegt.</div>}
 
-        <h2 className="mt-6 mb-3 text-[17px] font-bold text-cream">Zubereitung</h2>
+        <h2 className="mb-3 mt-[22px] text-[17px] font-extrabold text-cream">Zubereitung</h2>
         {recipe.steps.map((s, i) => (
-          <div key={s.id} className="flex gap-3.5 py-3">
-            <div className="mt-0.5 flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-full bg-rust-solid text-[12px] font-bold text-bg">
+          <div key={s.id} className="mb-2.5 flex gap-3 rounded-2xl bg-rust-solid px-4 py-3.5">
+            <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-white/25 text-[12.5px] font-extrabold text-white">
               {i + 1}
             </div>
-            <div className="pt-0.5 text-[13.5px] leading-relaxed text-cream">{s.text}</div>
+            <div className="pt-0.5 text-[13.5px] font-medium leading-relaxed text-white">{s.text}</div>
           </div>
         ))}
         {recipe.steps.length === 0 && <div className="text-[12.5px] text-cream-soft">Keine Zubereitungsschritte hinterlegt.</div>}
 
         {(recipe.links.length > 0 || recipe.sourceUrl) && (
           <>
-            <h2 className="mt-6 mb-3 text-[17px] font-bold text-cream">Quelle</h2>
+            <h2 className="mb-3 mt-[22px] text-[17px] font-extrabold text-cream">Quelle</h2>
             {recipe.sourceUrl && (
               <a
                 href={recipe.sourceUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-2 flex items-center gap-2.5 rounded-[10px] border border-line bg-surface px-3.5 py-3 text-[12.5px] text-cream-soft"
+                className="mt-2 flex items-center gap-2.5 rounded-[14px] border border-line bg-surface px-3.5 py-3 text-[12.5px] text-cream-soft shadow-card-sm"
               >
                 <LinkIcon width={16} height={16} /> {recipe.sourceUrl}
               </a>
@@ -184,7 +214,7 @@ export default function RecipeDetailPage() {
                 href={l.url}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-2 flex items-center gap-2.5 rounded-[10px] border border-line bg-surface px-3.5 py-3 text-[12.5px] text-cream-soft"
+                className="mt-2 flex items-center gap-2.5 rounded-[14px] border border-line bg-surface px-3.5 py-3 text-[12.5px] text-cream-soft shadow-card-sm"
               >
                 {l.label.toLowerCase().includes('insta') ? <InstagramIcon width={16} height={16} /> : <PlayIcon width={14} height={14} />}
                 {l.label}: {l.url}
@@ -212,7 +242,7 @@ export default function RecipeDetailPage() {
               }
               setStatus('Zutaten zur Einkaufsliste hinzugefügt.')
             }}
-            className="mt-6 w-full rounded-[10px] border border-dashed border-rust py-3 text-center text-[12.5px] font-semibold text-rust"
+            className="mt-6 w-full rounded-full border-[1.5px] border-dashed border-rust py-3 text-center text-[12.5px] font-bold text-rust"
           >
             + Zutaten zur Einkaufsliste hinzufügen
           </button>
@@ -230,26 +260,33 @@ export default function RecipeDetailPage() {
           <PlayIcon width={13} height={13} /> Kochmodus starten
         </PrimaryButton>
 
-        {status && <div className="mt-3 rounded-[10px] border border-line bg-surface px-3.5 py-2.5 text-[12px] text-cream-soft break-all">{status}</div>}
+        {status && <div className="mt-3 rounded-2xl border border-line bg-surface px-3.5 py-2.5 text-[12px] text-cream-soft shadow-card-sm break-all">{status}</div>}
 
         {showPing && (
-          <div className="mt-3 rounded-xl border border-line bg-surface p-4">
+          <div className="mt-3 rounded-2xl border border-line bg-surface p-4 shadow-card-sm">
             <div className="mb-2 text-[12px] font-bold uppercase tracking-wide text-cream-soft">An wen markieren?</div>
             <div className="flex flex-wrap gap-1.5">
-              <Chip selected={pingTo === null} onClick={() => setPingTo(null)}>
+              <button
+                onClick={() => setPingTo(null)}
+                className={`rounded-full border px-3.5 py-2 text-[12.5px] font-semibold ${pingTo === null ? 'border-rust-solid bg-rust-solid text-white' : 'border-line bg-bg text-cream-soft'}`}
+              >
                 Ganzer Haushalt
-              </Chip>
+              </button>
               {members.map((m) => (
-                <Chip key={m.id} selected={pingTo === m.id} onClick={() => setPingTo(m.id)}>
+                <button
+                  key={m.id}
+                  onClick={() => setPingTo(m.id)}
+                  className={`rounded-full border px-3.5 py-2 text-[12.5px] font-semibold ${pingTo === m.id ? 'border-rust-solid bg-rust-solid text-white' : 'border-line bg-bg text-cream-soft'}`}
+                >
                   {m.displayName}
-                </Chip>
+                </button>
               ))}
             </div>
             <textarea
               value={pingNote}
               onChange={(e) => setPingNote(e.target.value)}
               placeholder="Kurze Notiz (optional)…"
-              className="mt-3 w-full resize-none rounded-[10px] border border-line bg-bg px-3 py-2 text-[13px] text-cream placeholder:text-cream-soft/70 focus:outline-none"
+              className="mt-3 w-full resize-none rounded-xl border border-line bg-bg px-3 py-2 text-[13px] text-cream placeholder:text-cream-soft/70 focus:outline-none"
               rows={2}
             />
             <PrimaryButton className="mt-3 w-full" onClick={sendPing}>
@@ -258,15 +295,6 @@ export default function RecipeDetailPage() {
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-function MetaCol({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex-1 text-left">
-      <div className="text-[9.5px] uppercase tracking-wider text-cream-soft">{label}</div>
-      <div className="mt-1 text-[16px] font-bold text-cream">{value}</div>
     </div>
   )
 }

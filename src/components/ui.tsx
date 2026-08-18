@@ -4,23 +4,27 @@ export function Chip({
   children,
   selected,
   dashed,
+  fav,
   onClick,
 }: {
   children: ReactNode
   selected?: boolean
   dashed?: boolean
+  fav?: boolean
   onClick?: () => void
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`whitespace-nowrap rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
+      className={`flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-[12.5px] font-semibold shadow-card-sm transition-colors ${
         selected
-          ? 'border-rust text-rust bg-rust/10'
+          ? 'border-rust-solid bg-rust-solid text-white'
           : dashed
-            ? 'border-dashed border-rust/60 text-rust'
-            : 'border-line text-cream-soft'
+            ? 'border-dashed border-rust text-rust shadow-none'
+            : fav
+              ? 'border-line bg-surface text-rust'
+              : 'border-line bg-surface text-cream-soft'
       }`}
     >
       {children}
@@ -44,10 +48,10 @@ export function IconBtn({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="relative flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line bg-surface text-cream"
+      className="relative flex h-[32px] w-[32px] flex-shrink-0 items-center justify-center rounded-full border border-line bg-surface text-cream shadow-card-sm"
     >
       {children}
-      {dot && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-bg bg-rust-solid" />}
+      {dot && <span className="absolute -right-0.5 -top-0.5 h-[9px] w-[9px] rounded-full border-2 border-surface bg-rust-solid" />}
     </button>
   )
 }
@@ -70,7 +74,7 @@ export function PrimaryButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`flex items-center justify-center gap-2 rounded-[3px] border border-rust-solid bg-rust-solid px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-bg disabled:opacity-50 ${className}`}
+      className={`flex items-center justify-center gap-2 rounded-full border border-rust-solid bg-rust-solid px-4 py-3.5 text-[13px] font-bold text-white shadow-[0_10px_24px_rgba(242,129,74,0.35)] disabled:opacity-50 ${className}`}
     >
       {children}
     </button>
@@ -90,7 +94,7 @@ export function OutlineButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center justify-center gap-2 rounded-[3px] border border-cream px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-cream ${className}`}
+      className={`flex items-center justify-center gap-2 rounded-full border-[1.5px] border-cream px-4 py-3.5 text-[13px] font-bold text-cream ${className}`}
     >
       {children}
     </button>
@@ -102,7 +106,7 @@ export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...rest}
-      className={`w-full rounded-[10px] border border-line bg-surface px-3.5 py-2.5 text-sm text-cream placeholder:text-cream-soft/70 focus:outline-none focus:border-rust ${className}`}
+      className={`w-full rounded-xl border border-line bg-surface px-3.5 py-3 text-sm text-cream placeholder:text-cream-soft/70 focus:outline-none focus:border-rust ${className}`}
     />
   )
 }
@@ -112,7 +116,7 @@ export function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
   return (
     <textarea
       {...rest}
-      className={`w-full resize-none rounded-[10px] border border-line bg-surface px-3.5 py-2.5 text-sm text-cream placeholder:text-cream-soft/70 focus:outline-none focus:border-rust ${className}`}
+      className={`w-full resize-none rounded-xl border border-line bg-surface px-3.5 py-3 text-sm text-cream placeholder:text-cream-soft/70 focus:outline-none focus:border-rust ${className}`}
     />
   )
 }
@@ -129,7 +133,7 @@ export function RowCard({ children, onClick }: { children: ReactNode; onClick?: 
   return (
     <div
       onClick={onClick}
-      className={`mx-[18px] mb-2 flex items-center justify-between rounded-[10px] border border-line bg-surface px-4 py-3.5 text-[13.5px] text-cream ${onClick ? 'cursor-pointer' : ''}`}
+      className={`mx-[18px] mb-2 flex items-center justify-between rounded-2xl border border-line bg-surface px-4 py-3.5 text-[13.5px] text-cream shadow-card-sm ${onClick ? 'cursor-pointer' : ''}`}
     >
       {children}
     </div>

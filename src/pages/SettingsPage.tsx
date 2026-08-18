@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { repo } from '../data'
 import { useAuth } from '../lib/useAuth'
 import { useCategories } from '../lib/useCategories'
-import { getWakeLockPref, setWakeLockPref } from '../lib/prefs'
+import { getWakeLockPref, setWakeLockPref, getMemberAvatar, setMemberAvatar, memberAvatarKey } from '../lib/prefs'
 import { fileToCompressedDataUrl } from '../lib/image'
 import { GroupLabel, RowCard } from '../components/ui'
 import { XIcon, PlusIcon, CameraIcon, LogoutIcon } from '../icons'
@@ -24,15 +24,23 @@ export default function SettingsPage() {
   const { authState, refresh } = useAuth()
   const { categories, refresh: refreshCategories } = useCategories()
   const [logo, setLogo] = useState<string | null>(null)
+  const [avatar, setAvatar] = useState<string | null>(null)
   const [newCat, setNewCat] = useState('')
   const [pushOn, setPushOn] = useState(false)
   const [wakeLock, setWakeLock] = useState(getWakeLockPref())
   const [pushStatus, setPushStatus] = useState<string | null>(null)
 
+  const avatarKey = memberAvatarKey(authState?.household?.id, authState?.currentMemberName)
+
   useEffect(() => {
     repo.getSettings().then((s) => setLogo(s.logoDataUrl))
     if (repo.mode === 'cloud') repo.isPushSubscribed().then(setPushOn)
   }, [])
+
+  useEffect(() => {
+    setAvatar(getMemberAvatar(avatarKey))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [avatarKey])
 
   const onPickLogo = async (file: File) => {
     const dataUrl = await fileToCompressedDataUrl(file, 512, 0.85)
@@ -43,6 +51,17 @@ export default function SettingsPage() {
   const removeLogo = async () => {
     await repo.setLogo(null)
     setLogo(null)
+  }
+
+  const onPickAvatar = async (file: File) => {
+    const dataUrl = await fileToCompressedDataUrl(file, 320, 0.85)
+    setMemberAvatar(avatarKey, dataUrl)
+    setAvatar(dataUrl)
+  }
+
+  const removeAvatar = () => {
+    setMemberAvatar(avatarKey, null)
+    setAvatar(null)
   }
 
   const addCategory = async () => {
@@ -121,6 +140,34 @@ export default function SettingsPage() {
         </div>
         {repo.mode === 'cloud' && <div className="rounded-md bg-surface-2 px-2.5 py-1 text-[11.5px] text-cream-soft">{authState?.household?.name}</div>}
       </RowCard>
+
+      <GroupLabel>Dein Profilbild</GroupLabel>
+      <RowCard>
+        <div className="flex items-center gap-3">
+          {avatar ? (
+            <img src={avatar} className="h-11 w-11 rounded-full border-2 border-rust object-cover" alt="Profilbild" />
+          ) : (
+            <div className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-rust bg-[color-mix(in_srgb,var(--color-rust)_14%,white)] text-sm font-bold text-rust">
+              {(authState?.currentMemberName ?? '?').charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="text-xs text-cream-soft">{avatar ? 'Dein aktuelles Foto' : 'Noch kein Profilbild'}</div>
+        </div>
+        <div className="flex flex-col items-end gap-1.5">
+          <label className="cursor-pointer text-xs font-bold text-rust">
+            Hochladen
+            <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && onPickAvatar(e.target.files[0])} />
+          </label>
+          {avatar && (
+            <button onClick={removeAvatar} className="text-[11px] text-cream-soft">
+              Entfernen
+            </button>
+          )}
+        </div>
+      </RowCard>
+      <div className="mx-[18px] mb-1 pb-2 text-[11px] text-cream-soft">
+        Erscheint oben in der App neben deinem Namen. Wird nur auf diesem Gerät gespeichert, nicht mit anderen Haushaltsmitgliedern synchronisiert.
+      </div>
 
       <GroupLabel>Kategorien verwalten</GroupLabel>
       {categories.map((c) => (

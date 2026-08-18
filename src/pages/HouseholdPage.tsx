@@ -5,9 +5,9 @@ import type { Member, Role } from '../data/repo'
 
 const ROLE_LABEL: Record<Role, string> = { owner: 'Besitzer', editor: 'Bearbeiter', viewer: 'Betrachter' }
 const ROLE_CLASS: Record<Role, string> = {
-  owner: 'text-rust border-rust',
-  editor: 'text-sage border-sage',
-  viewer: 'text-cream-soft border-line',
+  owner: 'text-rust border-rust bg-[color-mix(in_srgb,var(--color-rust)_12%,white)]',
+  editor: 'text-sage border-sage bg-[color-mix(in_srgb,var(--color-sage)_12%,white)]',
+  viewer: 'text-cream-soft border-line bg-surface-2',
 }
 
 export default function HouseholdPage() {
@@ -27,7 +27,7 @@ export default function HouseholdPage() {
         <div className="px-[18px] pb-2.5 pt-5">
           <h1 className="text-[21px] font-extrabold text-cream">Haushalt</h1>
         </div>
-        <div className="mx-[18px] rounded-xl border border-dashed border-line p-6 text-center text-[12.5px] text-cream-soft">
+        <div className="mx-[18px] rounded-2xl border border-dashed border-line p-6 text-center text-[12.5px] text-cream-soft">
           Du bist im Solo-Modus unterwegs – hier läuft alles nur lokal auf diesem Gerät. Um Rezepte, Vorrat und Einkaufsliste mit anderen zu teilen, richte den
           Verbunden-Modus ein (siehe SETUP.md aus deiner Auslieferung).
         </div>
@@ -71,7 +71,7 @@ export default function HouseholdPage() {
 
       <div className="px-[18px] pb-2 pt-4 text-[10.5px] font-bold uppercase tracking-wider text-rust">Mitglieder</div>
       {members.map((m) => (
-        <div key={m.id} className="mx-[18px] mb-2 flex items-center justify-between rounded-[10px] border border-line bg-surface px-4 py-3.5 text-[13.5px] text-cream">
+        <div key={m.id} className="mx-[18px] mb-2 flex items-center justify-between rounded-2xl border border-line bg-surface px-4 py-3.5 text-[13.5px] text-cream shadow-card-sm">
           <div>
             {m.displayName} {m.isYou && <span className="text-cream-soft">(du)</span>}
           </div>
@@ -96,7 +96,7 @@ export default function HouseholdPage() {
         </div>
       ))}
 
-      <div className="mx-[18px] mt-6 rounded-xl border border-line bg-surface p-4 text-[11.5px] leading-relaxed text-cream-soft">
+      <div className="mx-[18px] mt-6 rounded-2xl border border-line bg-surface p-4 text-[11.5px] leading-relaxed text-cream-soft shadow-card-sm">
         <b className="text-cream">Rollen:</b> Betrachter können alles ansehen, aber nichts ändern. Bearbeiter dürfen Rezepte, Vorrat und Einkaufsliste bearbeiten. Der
         Besitzer verwaltet zusätzlich die Mitgliederrollen.
       </div>

@@ -4,6 +4,7 @@ import { repo } from '../data'
 import type { Recipe } from '../db/types'
 import { XIcon, SunIcon } from '../icons'
 import { getWakeLockPref } from '../lib/prefs'
+import { PrimaryButton, OutlineButton } from '../components/ui'
 
 export default function CookModePage() {
   const { id } = useParams()
@@ -52,16 +53,16 @@ export default function CookModePage() {
   const step = steps[stepIndex]
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[#0e0b08]">
+    <div className="flex min-h-dvh flex-col bg-bg">
       <div className="flex items-center justify-between px-[18px] py-5">
-        <button onClick={() => navigate(-1)} className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-surface text-cream">
-          <XIcon />
+        <button onClick={() => navigate(-1)} className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line bg-surface text-cream shadow-card-sm">
+          <XIcon width={15} height={15} />
         </button>
-        <div className="flex items-center gap-1.5 text-[11px] text-cream-soft">
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-cream-soft">
           <SunIcon width={13} height={13} className={awake ? 'text-sage' : ''} />
           {awake ? 'Bildschirm bleibt an' : 'Bildschirm-Sperre nicht verhindert'}
         </div>
-        <div className="text-[13px] font-bold text-rust">
+        <div className="text-[13px] font-extrabold text-rust">
           {stepIndex + 1} / {steps.length}
         </div>
       </div>
@@ -71,7 +72,7 @@ export default function CookModePage() {
       </div>
 
       <div className="flex flex-1 items-center px-6 py-10">
-        <div className="text-[32px] font-semibold leading-snug text-cream">{step.text}</div>
+        <div className="text-[32px] font-bold leading-snug text-cream">{step.text}</div>
       </div>
 
       {recipe.ingredients.length > 0 && (
@@ -79,7 +80,7 @@ export default function CookModePage() {
           <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-rust">Zutaten im Überblick</div>
           <div className="hide-scrollbar flex gap-1.5 overflow-x-auto">
             {recipe.ingredients.map((ing) => (
-              <div key={ing.id} className="flex-shrink-0 rounded-full border border-line px-3 py-1.5 text-[11px] text-cream-soft">
+              <div key={ing.id} className="flex-shrink-0 rounded-full border border-line bg-surface px-3 py-1.5 text-[11px] text-cream-soft shadow-card-sm">
                 {ing.quantity ? `${ing.quantity} ${ing.unit} ` : ''}
                 {ing.name}
               </div>
@@ -88,25 +89,18 @@ export default function CookModePage() {
         </div>
       )}
 
-      <div className="sticky bottom-0 flex gap-2.5 px-[18px] pb-6 pt-4" style={{ background: 'linear-gradient(to top, #0e0b08 60%, transparent)' }}>
-        <button
-          disabled={stepIndex === 0}
-          onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
-          className="flex-1 rounded-[3px] border border-cream py-3 text-center text-[11px] font-bold uppercase tracking-wider text-cream disabled:opacity-30"
-        >
+      <div className="sticky bottom-0 flex gap-2.5 px-[18px] pb-6 pt-4" style={{ background: 'linear-gradient(to top, var(--color-bg) 60%, transparent)' }}>
+        <OutlineButton className="flex-1" onClick={() => setStepIndex((i) => Math.max(0, i - 1))}>
           ← Zurück
-        </button>
+        </OutlineButton>
         {stepIndex < steps.length - 1 ? (
-          <button
-            onClick={() => setStepIndex((i) => Math.min(steps.length - 1, i + 1))}
-            className="flex-[2] rounded-[3px] border border-rust-solid bg-rust-solid py-3 text-center text-[11px] font-bold uppercase tracking-wider text-bg"
-          >
+          <PrimaryButton className="flex-[2]" onClick={() => setStepIndex((i) => Math.min(steps.length - 1, i + 1))}>
             Weiter →
-          </button>
+          </PrimaryButton>
         ) : (
           <button
             onClick={() => navigate(`/rezepte/${recipe.id}`)}
-            className="flex-[2] rounded-[3px] border border-sage bg-sage py-3 text-center text-[11px] font-bold uppercase tracking-wider text-bg"
+            className="flex flex-[2] items-center justify-center gap-2 rounded-full border border-sage bg-sage py-3.5 text-[13px] font-bold text-white shadow-[0_10px_24px_rgba(127,163,94,0.35)]"
           >
             Fertig ✓
           </button>

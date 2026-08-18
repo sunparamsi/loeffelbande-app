@@ -103,14 +103,14 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
   return (
     <div className="pb-10">
       <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-bg px-[18px] py-[18px]">
-        <button onClick={() => navigate(-1)} className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-surface">
-          <ArrowLeftIcon />
+        <button onClick={() => navigate(-1)} className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line bg-surface text-cream shadow-card-sm">
+          <ArrowLeftIcon width={16} height={16} />
         </button>
         <h1 className="text-lg font-extrabold text-cream">{mode === 'create' ? 'Neues Rezept' : 'Rezept bearbeiten'}</h1>
         <button
           onClick={save}
           disabled={saving}
-          className="rounded-lg bg-rust-solid px-3.5 py-2 text-xs font-bold text-bg disabled:opacity-50"
+          className="rounded-full bg-rust-solid px-4 py-2.5 text-xs font-bold text-white shadow-[0_8px_18px_rgba(242,129,74,0.35)] disabled:opacity-50"
         >
           Speichern
         </button>

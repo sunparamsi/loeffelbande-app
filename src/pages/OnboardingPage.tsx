@@ -77,7 +77,7 @@ export default function OnboardingPage() {
           <TextInput value={pin} onChange={(e) => setPin(e.target.value)} placeholder="••••••" type="password" />
         </div>
 
-        {error && <div className="rounded-[10px] border border-rust/40 bg-rust/10 px-3.5 py-2.5 text-[12px] text-rust">{error}</div>}
+        {error && <div className="rounded-2xl border border-rust/40 bg-rust/10 px-3.5 py-2.5 text-[12px] text-rust">{error}</div>}
 
         <PrimaryButton className="mt-2 w-full" onClick={submit} disabled={busy}>
           {busy ? 'Einen Moment…' : tab === 'create' ? 'Haushalt erstellen' : tab === 'join' ? 'Beitreten' : 'Anmelden'}

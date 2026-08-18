@@ -60,7 +60,7 @@ export default function ShoppingListPage() {
     <div className="pb-8">
       <div className="flex items-center justify-between px-[18px] pb-2.5 pt-5">
         <h1 className="text-[21px] font-extrabold text-cream">Einkaufsliste</h1>
-        <button onClick={() => setAdding((a) => !a)} className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line bg-surface text-cream">
+        <button onClick={() => setAdding((a) => !a)} className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line bg-surface text-cream shadow-card-sm">
           <PlusIcon />
         </button>
       </div>
@@ -69,7 +69,7 @@ export default function ShoppingListPage() {
       )}
 
       {adding && (
-        <div className="mx-[18px] mb-4 rounded-xl border border-line bg-surface p-4">
+        <div className="mx-[18px] mb-4 rounded-2xl border border-line bg-surface p-4 shadow-card-sm">
           <TextInput className="mb-2" value={name} onChange={(e) => setName(e.target.value)} placeholder="Was fehlt?" />
           <div className="mb-3 grid grid-cols-2 gap-2">
             <TextInput value={qty} onChange={(e) => setQty(e.target.value)} placeholder="Menge" type="number" />
@@ -81,7 +81,7 @@ export default function ShoppingListPage() {
         </div>
       )}
 
-      {items.length === 0 && <div className="mx-[18px] rounded-xl border border-dashed border-line p-8 text-center text-[12.5px] text-cream-soft">Einkaufsliste ist leer.</div>}
+      {items.length === 0 && <div className="mx-[18px] rounded-2xl border border-dashed border-line p-8 text-center text-[12.5px] text-cream-soft">Einkaufsliste ist leer.</div>}
 
       {open.map((item) => (
         <Row key={item.id} item={item} recipeTitle={recipeTitle} onToggle={toggle} onRemove={remove} />
@@ -107,7 +107,7 @@ function Row({
 }) {
   const fromLabel = item.fromRecipeIds.length > 0 ? `für ${item.fromRecipeIds.map(recipeTitle).filter(Boolean).join(', ')}` : 'manuell hinzugefügt'
   return (
-    <div className={`mx-[18px] mb-2 flex items-center gap-3 rounded-[10px] border border-line bg-surface px-4 py-3.5 ${item.checked ? 'opacity-45' : ''}`}>
+    <div className={`mx-[18px] mb-2 flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3.5 shadow-card-sm ${item.checked ? 'opacity-45' : ''}`}>
       <button
         onClick={() => onToggle(item)}
         className={`flex h-[19px] w-[19px] flex-shrink-0 items-center justify-center rounded-full border ${item.checked ? 'border-sage bg-sage text-bg' : 'border-rust'}`}

@@ -92,8 +92,8 @@ export default function NewRecipeChooserPage() {
   return (
     <div className="pb-10">
       <div className="flex items-center justify-between px-[18px] py-[18px]">
-        <button onClick={() => navigate(-1)} className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-surface">
-          <ArrowLeftIcon />
+        <button onClick={() => navigate(-1)} className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line bg-surface text-cream shadow-card-sm">
+          <ArrowLeftIcon width={16} height={16} />
         </button>
         <h1 className="text-lg font-extrabold text-cream">Neues Rezept</h1>
         <div className="w-[34px]" />
@@ -108,7 +108,7 @@ export default function NewRecipeChooserPage() {
         Rezept-Link einfügen – wird automatisch übernommen, wenn die Seite das unterstützt.
       </ImportCard>
       {panel === 'url' && (
-        <div className="mx-[18px] mb-3 rounded-xl border border-line bg-surface p-4">
+        <div className="mx-[18px] mb-3 rounded-2xl border border-line bg-surface p-4 shadow-card-sm">
           <TextInput value={urlValue} onChange={(e) => setUrlValue(e.target.value)} placeholder="https://…" />
           <PrimaryButton className="mt-3 w-full" onClick={doUrlImport} disabled={busy}>
             {busy ? 'Importiere…' : 'Importieren'}
@@ -131,7 +131,7 @@ export default function NewRecipeChooserPage() {
         Link + Bildunterschrift einfügen – wir strukturieren automatisch vor. Volles Auslesen der Plattformen ist technisch nicht möglich.
       </ImportCard>
       {panel === 'social' && (
-        <div className="mx-[18px] mb-3 rounded-xl border border-line bg-surface p-4">
+        <div className="mx-[18px] mb-3 rounded-2xl border border-line bg-surface p-4 shadow-card-sm">
           <TextInput value={socialUrl} onChange={(e) => setSocialUrl(e.target.value)} placeholder="Link zum Beitrag (optional)" className="mb-2.5" />
           <TextArea rows={5} value={socialText} onChange={(e) => setSocialText(e.target.value)} placeholder="Bildunterschrift/Text hier einfügen…" />
           <PrimaryButton className="mt-3 w-full" onClick={doSocialImport}>
@@ -140,7 +140,7 @@ export default function NewRecipeChooserPage() {
         </div>
       )}
 
-      {error && <div className="mx-[18px] mt-2 rounded-[10px] border border-rust/40 bg-rust/10 px-3.5 py-2.5 text-[12px] text-rust">{error}</div>}
+      {error && <div className="mx-[18px] mt-2 rounded-2xl border border-rust/40 bg-rust/10 px-3.5 py-2.5 text-[12px] text-rust">{error}</div>}
     </div>
   )
 }
@@ -161,9 +161,9 @@ function ImportCard({
   return (
     <button
       onClick={onClick}
-      className={`mx-[18px] mb-3 flex w-[calc(100%-36px)] items-start gap-3.5 rounded-2xl border bg-surface p-4 text-left ${highlight ? 'border-rust' : 'border-line'}`}
+      className={`mx-[18px] mb-3 flex w-[calc(100%-36px)] items-start gap-3.5 rounded-2xl border bg-surface p-4 text-left shadow-card-sm ${highlight ? 'border-rust' : 'border-line'}`}
     >
-      <div className="flex h-[42px] w-[42px] flex-shrink-0 items-center justify-center rounded-xl bg-surface-2 text-rust">{icon}</div>
+      <div className="flex h-[42px] w-[42px] flex-shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--color-rust)_12%,white)] text-rust">{icon}</div>
       <div>
         <div className="mb-0.5 text-sm font-bold text-cream">{title}</div>
         <div className="text-[11.5px] leading-relaxed text-cream-soft">{children}</div>

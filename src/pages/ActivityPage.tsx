@@ -31,20 +31,20 @@ export default function ActivityPage() {
       </div>
 
       {repo.mode !== 'cloud' && (
-        <div className="mx-[18px] rounded-xl border border-dashed border-line p-6 text-center text-[12.5px] text-cream-soft">
+        <div className="mx-[18px] rounded-2xl border border-dashed border-line p-6 text-center text-[12.5px] text-cream-soft">
           Der Aktivitäts-Feed zeigt, was in deinem Haushalt passiert – dafür braucht es den Verbunden-Modus mit mindestens einem weiteren Mitglied.
         </div>
       )}
 
       {repo.mode === 'cloud' && items.length === 0 && (
-        <div className="mx-[18px] rounded-xl border border-dashed border-line p-6 text-center text-[12.5px] text-cream-soft">
+        <div className="mx-[18px] rounded-2xl border border-dashed border-line p-6 text-center text-[12.5px] text-cream-soft">
           Noch keine Aktivität. Sobald jemand ein Rezept hinzufügt oder markiert, taucht es hier auf.
         </div>
       )}
 
       {items.map((a) => (
         <div key={a.id} className="flex gap-3 border-b border-line px-[18px] py-3.5">
-          <div className="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-full border border-rust text-[13px] font-semibold text-rust">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border-[1.5px] border-rust-solid bg-[color-mix(in_srgb,var(--color-rust)_14%,white)] text-[13px] font-bold text-rust">
             {(a.fromMemberName ?? '?').slice(0, 1).toUpperCase()}
           </div>
           <div>
@@ -60,7 +60,7 @@ export default function ActivityPage() {
                 </>
               )}
             </div>
-            {a.note && <div className="mt-1.5 rounded-lg border border-line bg-surface px-2.5 py-2 text-[12.5px] italic text-cream-soft">„{a.note}"</div>}
+            {a.note && <div className="mt-1.5 rounded-[10px] border border-line bg-surface px-2.5 py-2 text-[12.5px] italic text-cream-soft shadow-card-sm">„{a.note}"</div>}
             <div className="mt-1 text-[10.5px] text-cream-soft">{timeAgo(a.createdAt)}</div>
           </div>
         </div>

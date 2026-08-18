@@ -59,13 +59,13 @@ export default function PantryPage() {
     <div className="pb-8">
       <div className="flex items-center justify-between px-[18px] pb-2.5 pt-5">
         <h1 className="text-[21px] font-extrabold text-cream">Vorrat</h1>
-        <button onClick={() => setAdding((a) => !a)} className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line bg-surface text-cream">
+        <button onClick={() => setAdding((a) => !a)} className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line bg-surface text-cream shadow-card-sm">
           <PlusIcon />
         </button>
       </div>
 
       {adding && (
-        <div className="mx-[18px] mb-4 rounded-xl border border-line bg-surface p-4">
+        <div className="mx-[18px] mb-4 rounded-2xl border border-line bg-surface p-4 shadow-card-sm">
           <TextInput className="mb-2" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Zutat (z. B. Parmesan)" />
           <div className="mb-2 grid grid-cols-2 gap-2">
             <TextInput value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} placeholder="Menge" type="number" />
@@ -82,18 +82,18 @@ export default function PantryPage() {
       )}
 
       <div className="px-[18px] pb-3">
-        <div className="flex items-center justify-between border-b border-line pb-2.5">
+        <div className="flex items-center gap-2 rounded-full bg-surface-2 px-4 py-2.5">
+          <SearchIcon width={16} height={16} className="flex-shrink-0 text-cream-soft" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Zutat suchen…"
-            className="w-full bg-transparent text-[14.5px] text-cream placeholder:text-cream-soft focus:outline-none"
+            className="w-full bg-transparent text-[13.5px] text-cream placeholder:text-cream-soft focus:outline-none"
           />
-          <SearchIcon className="text-rust flex-shrink-0" />
         </div>
       </div>
 
-      {groups.length === 0 && <div className="mx-[18px] rounded-xl border border-dashed border-line p-8 text-center text-[12.5px] text-cream-soft">Noch nichts im Vorrat.</div>}
+      {groups.length === 0 && <div className="mx-[18px] rounded-2xl border border-dashed border-line p-8 text-center text-[12.5px] text-cream-soft">Noch nichts im Vorrat.</div>}
 
       {groups.map(([cat, list]) => (
         <div key={cat}>
@@ -101,7 +101,7 @@ export default function PantryPage() {
           {list.map((item) => {
             const soon = item.expiryDate ? daysUntil(item.expiryDate) <= 5 : false
             return (
-              <div key={item.id} className="mx-[18px] mb-2 flex items-center justify-between rounded-[10px] border border-line bg-surface px-4 py-3.5 text-[13.5px] text-cream">
+              <div key={item.id} className="mx-[18px] mb-2 flex items-center justify-between rounded-2xl border border-line bg-surface px-4 py-3.5 text-[13.5px] text-cream shadow-card-sm">
                 <div>
                   <div>{item.name}</div>
                   {item.expiryDate && <div className={`mt-0.5 text-[10.5px] font-bold ${soon ? 'text-rust' : 'text-cream-soft'}`}>läuft am {item.expiryDate} ab</div>}

@@ -5,7 +5,7 @@ import type { Recipe } from '../db/types'
 import TopBar from '../components/TopBar'
 import RecipeCard from '../components/RecipeCard'
 import { Chip } from '../components/ui'
-import { SearchIcon, PlusIcon } from '../icons'
+import { SearchIcon, PlusIcon, FilterIcon } from '../icons'
 import { useCategories } from '../lib/useCategories'
 
 export default function RecipeListPage() {
@@ -13,6 +13,7 @@ export default function RecipeListPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<string>('Alle')
+  const [sortAlpha, setSortAlpha] = useState(false)
   const { categories } = useCategories()
 
   useEffect(() => {
@@ -30,13 +31,17 @@ export default function RecipeListPage() {
         return hay.includes(q)
       })
     }
+    list = [...list]
+    if (sortAlpha) list.sort((a, b) => a.title.localeCompare(b.title, 'de'))
+    else list.sort((a, b) => b.createdAt - a.createdAt)
     return list
-  }, [recipes, filter, query])
+  }, [recipes, filter, query, sortAlpha])
 
   return (
     <div className="relative pb-6">
       <TopBar title="Rezepte" />
-      <div className="hide-scrollbar flex gap-2 overflow-x-auto px-[18px] pb-3.5">
+
+      <div className="hide-scrollbar flex gap-2 overflow-x-auto px-[18px] pb-3.5 pt-1">
         <Chip selected={filter === 'Alle'} onClick={() => setFilter('Alle')}>
           Alle
         </Chip>
@@ -45,24 +50,33 @@ export default function RecipeListPage() {
             {c}
           </Chip>
         ))}
-        <Chip selected={filter === 'Favoriten'} onClick={() => setFilter('Favoriten')}>
+        <Chip selected={filter === 'Favoriten'} fav={filter !== 'Favoriten'} onClick={() => setFilter('Favoriten')}>
           Favoriten
         </Chip>
       </div>
-      <div className="px-[18px] pb-3.5">
-        <div className="flex items-center justify-between border-b border-line pb-2.5">
+
+      <div className="flex items-center gap-2.5 px-[18px] pb-4">
+        <div className="flex flex-1 items-center gap-2 rounded-full bg-surface-2 px-4 py-2.5">
+          <SearchIcon width={16} height={16} className="flex-shrink-0 text-cream-soft" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Rezept, Zutat oder Tag suchen…"
-            className="w-full bg-transparent text-[14.5px] text-cream placeholder:text-cream-soft focus:outline-none"
+            className="w-full bg-transparent text-[13.5px] text-cream placeholder:text-cream-soft focus:outline-none"
           />
-          <SearchIcon className="text-rust flex-shrink-0" />
         </div>
+        <button
+          onClick={() => setSortAlpha((v) => !v)}
+          aria-label="Sortierung umschalten"
+          title={sortAlpha ? 'Sortiert A–Z – tippen für Neueste zuerst' : 'Sortiert nach Neueste – tippen für A–Z'}
+          className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-line bg-surface shadow-card-sm ${sortAlpha ? 'text-rust' : 'text-cream'}`}
+        >
+          <FilterIcon width={15} height={15} />
+        </button>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="mx-[18px] rounded-xl border border-dashed border-line p-8 text-center text-[12.5px] text-cream-soft">
+        <div className="mx-[18px] rounded-2xl border border-dashed border-line p-8 text-center text-[12.5px] text-cream-soft">
           {recipes.length === 0 ? 'Noch keine Rezepte vorhanden.' : 'Keine Treffer für diese Suche/Filter.'}
         </div>
       ) : (
@@ -76,7 +90,7 @@ export default function RecipeListPage() {
       <button
         onClick={() => navigate('/rezepte/neu')}
         aria-label="Neues Rezept"
-        className="fixed bottom-[92px] right-5 flex h-[50px] w-[50px] items-center justify-center rounded-2xl bg-rust-solid text-bg shadow-lg"
+        className="fixed bottom-[92px] right-5 flex h-[52px] w-[52px] items-center justify-center rounded-[17px] bg-rust-solid text-white shadow-[0_12px_26px_rgba(242,129,74,0.45)]"
       >
         <PlusIcon width={22} height={22} />
       </button>
