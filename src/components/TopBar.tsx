@@ -1,10 +1,8 @@
-import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { BellIcon, GearIcon } from '../icons'
+import { useNavigate } from 'react-router-dom'
+import { BellIcon, GearIcon, HeartIcon } from '../icons'
 import { IconBtn } from './ui'
 import { repo } from '../data'
-import { useAuth } from '../lib/useAuth'
-import { getMemberAvatar, memberAvatarKey } from '../lib/prefs'
 
 export function LogoBadge({ size = 30 }: { size?: number }) {
   const [logo, setLogo] = useState<string | null>(null)
@@ -21,36 +19,6 @@ export function LogoBadge({ size = 30 }: { size?: number }) {
   )
 }
 
-function AvatarBadge({ size = 32 }: { size?: number }) {
-  const navigate = useNavigate()
-  const { authState } = useAuth()
-  const [avatar, setAvatar] = useState<string | null>(null)
-
-  useEffect(() => {
-    setAvatar(getMemberAvatar(memberAvatarKey(authState?.household?.id, authState?.currentMemberName)))
-  }, [authState?.household?.id, authState?.currentMemberName])
-
-  const initial = (authState?.currentMemberName ?? '?').trim().charAt(0).toUpperCase() || '?'
-
-  return (
-    <button
-      type="button"
-      onClick={() => navigate('/einstellungen')}
-      aria-label="Profil & Einstellungen"
-      style={{ width: size, height: size }}
-      className="flex-shrink-0 overflow-hidden rounded-full border-2 border-rust"
-    >
-      {avatar ? (
-        <img src={avatar} alt="" className="h-full w-full object-cover" />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center bg-[color-mix(in_srgb,var(--color-rust)_14%,white)] text-[12.5px] font-bold text-rust">
-          {initial}
-        </div>
-      )}
-    </button>
-  )
-}
-
 export default function TopBar({ title, showActions = true }: { title: string; showActions?: boolean }) {
   const navigate = useNavigate()
   return (
@@ -61,7 +29,9 @@ export default function TopBar({ title, showActions = true }: { title: string; s
       </div>
       {showActions && (
         <div className="flex items-center gap-2">
-          <AvatarBadge />
+          <IconBtn onClick={() => navigate('/rezepte?filter=Favoriten')} ariaLabel="Favoriten anzeigen">
+            <HeartIcon width={15} height={15} />
+          </IconBtn>
           <IconBtn dot onClick={() => navigate('/aktivitaet')} ariaLabel="Aktivität">
             <BellIcon width={15} height={15} />
           </IconBtn>

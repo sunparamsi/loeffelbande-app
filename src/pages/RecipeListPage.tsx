@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { repo } from '../data'
 import type { Recipe } from '../db/types'
 import TopBar from '../components/TopBar'
@@ -10,11 +10,24 @@ import { useCategories } from '../lib/useCategories'
 
 export default function RecipeListPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState<string>('Alle')
+  const [filter, setFilter] = useState<string>(() => searchParams.get('filter') || 'Alle')
   const [sortAlpha, setSortAlpha] = useState(false)
   const { categories } = useCategories()
+
+  // Ein direkter Link von woanders (z. B. „Favoriten" oben auf der
+  // Startseite) kann den Filter über ?filter=... vorbelegen.
+  useEffect(() => {
+    const f = searchParams.get('filter')
+    if (f) setFilter(f)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.get('filter')])
+
+  // Getippte Kategorie/Favoriten-Chip erneut antippen -> Auswahl aufheben,
+  // zurück zu "Alle".
+  const toggleFilter = (value: string) => setFilter((current) => (current === value ? 'Alle' : value))
 
   useEffect(() => {
     repo.listRecipes().then(setRecipes)
@@ -46,11 +59,11 @@ export default function RecipeListPage() {
           Alle
         </Chip>
         {categories.map((c) => (
-          <Chip key={c} selected={filter === c} onClick={() => setFilter(c)}>
+          <Chip key={c} selected={filter === c} onClick={() => toggleFilter(c)}>
             {c}
           </Chip>
         ))}
-        <Chip selected={filter === 'Favoriten'} fav={filter !== 'Favoriten'} onClick={() => setFilter('Favoriten')}>
+        <Chip selected={filter === 'Favoriten'} fav={filter !== 'Favoriten'} onClick={() => toggleFilter('Favoriten')}>
           Favoriten
         </Chip>
       </div>

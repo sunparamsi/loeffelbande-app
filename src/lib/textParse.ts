@@ -22,12 +22,21 @@ const SUB_HEADER_RE = /^(for the [a-zäöüß\s]{2,25}|für (den|die|das) [a-zä
  * "Flaky sea salt"), die sonst fälschlich als Zubereitungsschritt gelandet
  * wären. Ohne erkennbare Überschriften greift die alte zeilenweise Heuristik.
  */
-export function parseFreeText(text: string): { ingredients: Ingredient[]; steps: RecipeStep[] } {
-  const lines = text
+export function parseFreeText(text: string): { title: string; ingredients: Ingredient[]; steps: RecipeStep[] } {
+  const allLines = text
     .split(/\r?\n/)
     .map((l) => l.replace(/^[\s•\-*]+/, '').trim())
     .filter(Boolean)
     .filter((l) => !/^#/.test(l)) // Hashtags überspringen
+
+  // Die erste Zeile ist bei gescannten/eingefügten Rezepten so gut wie immer
+  // der Titel (Rezeptname steht auf Fotos/Webseiten/PDFs praktisch immer
+  // oben). Nur übernehmen, wenn sie nicht selbst wie eine Zutat oder eine
+  // Abschnittsüberschrift aussieht – sonst lieber keinen Titel raten.
+  const titleCandidate = allLines[0]
+  const hasTitle = allLines.length > 1 && titleCandidate && looksLikeTitle(titleCandidate)
+  const title = hasTitle ? titleCandidate : ''
+  const lines = hasTitle ? allLines.slice(1) : allLines
 
   const ingredientsHeaderIdx = lines.findIndex((l) => INGREDIENTS_HEADER_RE.test(l))
   const methodSearchStart = ingredientsHeaderIdx >= 0 ? ingredientsHeaderIdx + 1 : 0
@@ -35,20 +44,18 @@ export function parseFreeText(text: string): { ingredients: Ingredient[]; steps:
 
   if (methodHeaderIdx >= 0) {
     const ingredientZone = lines.slice(ingredientsHeaderIdx >= 0 ? ingredientsHeaderIdx + 1 : 0, methodHeaderIdx)
-    const stepZone = lines.slice(methodHeaderIdx + 1)
+    const stepZone = lines.slice(methodHeaderIdx + 1).filter((l) => !SUB_HEADER_RE.test(l))
 
     const ingredients = ingredientZone.filter((l) => !SUB_HEADER_RE.test(l)).map(parseIngredientLine)
-    const steps = stepZone
-      .filter((l) => !SUB_HEADER_RE.test(l))
-      .map((l) => ({ id: crypto.randomUUID(), text: l.replace(/^\d+[.)]\s*/, '') }))
+    const steps = reflowStepLines(stepZone).map((l) => ({ id: crypto.randomUUID(), text: l.replace(/^\d+[.)]\s*/, '') }))
 
-    return { ingredients, steps }
+    return { title, ingredients, steps }
   }
 
   // Kein klarer Zutaten-/Zubereitungs-Abschnitt gefunden (z. B. kurze
   // Social-Media-Bildunterschrift) – Fallback: zeilenweise entscheiden.
   const ingredients: Ingredient[] = []
-  const steps: RecipeStep[] = []
+  const rawStepLines: string[] = []
 
   for (const line of lines) {
     const lower = line.toLowerCase()
@@ -58,15 +65,54 @@ export function parseFreeText(text: string): { ingredients: Ingredient[]; steps:
     const isLong = line.length > 70
 
     if (looksLikeStepNumber || isLong) {
-      steps.push({ id: crypto.randomUUID(), text: line.replace(/^\d+[.)]\s*/, '') })
+      rawStepLines.push(line)
     } else if (startsWithNumber || hasUnit) {
       ingredients.push(parseIngredientLine(line))
     } else if (line.length > 0) {
-      steps.push({ id: crypto.randomUUID(), text: line })
+      rawStepLines.push(line)
     }
   }
 
-  return { ingredients, steps }
+  const steps = reflowStepLines(rawStepLines).map((l) => ({ id: crypto.randomUUID(), text: l.replace(/^\d+[.)]\s*/, '') }))
+
+  return { title, ingredients, steps }
+}
+
+/**
+ * Fügt Zeilen wieder zu ganzen Zubereitungsschritten zusammen. OCR/PDF-
+ * Extraktion liefert pro gedruckter (umgebrochener) Zeile eine eigene
+ * Textzeile – ein einzelner Schritt-Absatz landet dadurch auf mehreren
+ * Zeilen, die sonst fälschlich als mehrere Schritte gespeichert würden.
+ * Heuristik: Eine neue Zeile beginnt einen NEUEN Schritt, wenn sie explizit
+ * nummeriert ist ("1. …") oder wenn die vorherige Zeile bereits mit einem
+ * Satzende (. ! ? :) abgeschlossen wurde UND die neue Zeile groß beginnt.
+ * Sonst wird sie an den vorherigen Schritt angehängt (Zeilenumbruch mitten
+ * im Satz).
+ */
+function reflowStepLines(lines: string[]): string[] {
+  const merged: string[] = []
+  for (const line of lines) {
+    const prev = merged[merged.length - 1]
+    const isNumberedStart = /^\d+[.)]\s/.test(line)
+    const prevEndsSentence = !prev || /[.!?:]["'”’)]?$/.test(prev.trim())
+    const startsUpper = /^[A-ZÄÖÜ]/.test(line)
+    const startsNew = !prev || isNumberedStart || (prevEndsSentence && startsUpper)
+    if (startsNew) {
+      merged.push(line)
+    } else {
+      merged[merged.length - 1] = `${prev} ${line}`.trim()
+    }
+  }
+  return merged
+}
+
+/** Grobe Prüfung, ob eine Zeile als Rezepttitel taugt: keine Abschnitts-
+ * überschrift, keine Zutatenzeile (führende Zahl) und nicht zu lang. */
+function looksLikeTitle(line: string): boolean {
+  if (INGREDIENTS_HEADER_RE.test(line) || METHOD_HEADER_RE.test(line) || SUB_HEADER_RE.test(line)) return false
+  if (/^[\d½¼¾⅓⅔]/.test(line)) return false
+  if (line.length > 90) return false
+  return true
 }
 
 /** Zerlegt eine Zutatenzeile in Menge/Einheit/Name. Das Wort nach der Zahl

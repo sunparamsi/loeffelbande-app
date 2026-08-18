@@ -6,6 +6,7 @@ import { ArrowLeftIcon, CameraIcon, PlusIcon, XIcon, TrashIcon } from '../icons'
 import { Chip, TextInput, TextArea, FormLabel } from '../components/ui'
 import { useCategories } from '../lib/useCategories'
 import { fileToCompressedDataUrl } from '../lib/image'
+import { translateTexts } from '../lib/translate'
 
 function emptyRecipe(): Recipe {
   const now = Date.now()
@@ -39,6 +40,8 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const [newTag, setNewTag] = useState('')
   const [addingTag, setAddingTag] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [translating, setTranslating] = useState(false)
+  const [translateNote, setTranslateNote] = useState<string | null>(null)
 
   useEffect(() => {
     if (mode === 'edit' && id) {
@@ -100,6 +103,41 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
     update('links', recipe.links.map((l) => (l.id === lid ? { ...l, ...patch } : l)))
   const removeLink = (lid: string) => update('links', recipe.links.filter((l) => l.id !== lid))
 
+  const doTranslate = async () => {
+    setTranslating(true)
+    setTranslateNote(null)
+    try {
+      // Reihenfolge merken: Titel, Beschreibung, dann alle Zutatennamen, dann
+      // alle Schritte – so lassen sich die Übersetzungen hinterher wieder an
+      // der gleichen Position einsetzen.
+      const texts: string[] = [recipe.title, recipe.description ?? '', ...recipe.ingredients.map((i) => i.name), ...recipe.steps.map((s) => s.text)]
+      const nonEmptyIdx = texts.map((t, i) => (t.trim() ? i : -1)).filter((i) => i >= 0)
+      const toSend = nonEmptyIdx.map((i) => texts[i])
+      if (toSend.length === 0) return
+
+      const { translations, detectedLang } = await translateTexts(toSend, 'DE')
+      if (detectedLang && detectedLang.toUpperCase() === 'DE') {
+        setTranslateNote('Rezept scheint schon auf Deutsch zu sein – nichts geändert.')
+        return
+      }
+
+      const result = [...texts]
+      nonEmptyIdx.forEach((origIdx, sendIdx) => {
+        result[origIdx] = translations[sendIdx] ?? texts[origIdx]
+      })
+      const [newTitle, newDescription, ...rest] = result
+      const newIngredients = recipe.ingredients.map((ing, i) => ({ ...ing, name: rest[i] }))
+      const newSteps = recipe.steps.map((s, i) => ({ ...s, text: rest[recipe.ingredients.length + i] }))
+
+      setRecipe((r) => ({ ...r, title: newTitle, description: newDescription, ingredients: newIngredients, steps: newSteps }))
+      setTranslateNote('Ins Deutsche übersetzt – bitte kurz gegenprüfen.')
+    } catch (e) {
+      setTranslateNote(e instanceof Error ? e.message : 'Übersetzung fehlgeschlagen.')
+    } finally {
+      setTranslating(false)
+    }
+  }
+
   return (
     <div className="pb-10">
       <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-bg px-[18px] py-[18px]">
@@ -120,6 +158,19 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
         <FormLabel>Titel</FormLabel>
         <TextInput value={recipe.title} onChange={(e) => update('title', e.target.value)} placeholder="z. B. Pasta al Limone" />
       </div>
+
+      {mode === 'create' && (
+        <div className="px-[18px] pt-2.5">
+          <button
+            onClick={doTranslate}
+            disabled={translating}
+            className="rounded-full border border-dashed border-rust px-3.5 py-1.5 text-[11px] font-bold text-rust disabled:opacity-50"
+          >
+            {translating ? 'Übersetze…' : 'Ins Deutsche übersetzen'}
+          </button>
+          {translateNote && <div className="mt-1.5 text-[11px] text-cream-soft">{translateNote}</div>}
+        </div>
+      )}
 
       <div className="mx-[18px] mt-4 flex flex-wrap gap-2">
         {recipe.images.map((img) => (

@@ -5,6 +5,7 @@ import { ArrowLeftIcon, EditIcon, SearchIcon, CameraIcon, FileIcon, PdfIcon, Ins
 import { PrimaryButton, TextInput, TextArea } from '../components/ui'
 import { importFromUrl } from '../lib/urlImport'
 import { recognizeText } from '../lib/ocr'
+import { mergeOcrTexts } from '../lib/mergeOcrText'
 import { parseFreeText } from '../lib/textParse'
 import { parseJsonFile, parseCsvFile } from '../lib/fileImport'
 import type { Recipe } from '../db/types'
@@ -46,18 +47,31 @@ export default function NewRecipeChooserPage() {
     }
   }
 
-  const doPhotoImport = async (file: File) => {
+  const doPhotoImport = async (files: File[]) => {
+    if (files.length === 0) return
     setBusy(true)
     setProgress(0)
     setError(null)
     try {
-      const text = await recognizeText(file, setProgress)
-      if (!text.trim()) {
-        setError('Es konnte kein Text im Foto erkannt werden. Achte auf gute Beleuchtung, scharfen Fokus und dass der Text möglichst gerade/frontal im Bild steht – oder trag das Rezept manuell ein.')
+      const texts: string[] = []
+      for (let i = 0; i < files.length; i++) {
+        const text = await recognizeText(files[i], (pct) => setProgress(Math.round(((i + pct / 100) / files.length) * 100)))
+        texts.push(text)
+      }
+      // Bei mehreren Fotos (z. B. mehrere Screenshots desselben Rezepts)
+      // werden exakt doppelte Zeilen zusammengeführt/entfernt (etwa wenn sich
+      // zwei Fotos überlappen oder ein Titel auf jedem Screenshot steht).
+      const merged = mergeOcrTexts(texts)
+      if (!merged.trim()) {
+        setError(
+          files.length > 1
+            ? 'Es konnte kein Text in den Fotos erkannt werden. Achte auf gute Beleuchtung, scharfen Fokus und dass der Text möglichst gerade/frontal im Bild steht – oder trag das Rezept manuell ein.'
+            : 'Es konnte kein Text im Foto erkannt werden. Achte auf gute Beleuchtung, scharfen Fokus und dass der Text möglichst gerade/frontal im Bild steht – oder trag das Rezept manuell ein.',
+        )
         return
       }
       setReviewSource('photo')
-      setReviewText(text.trim())
+      setReviewText(merged.trim())
       setPanel('review')
     } catch {
       setError('Texterkennung ist fehlgeschlagen. Bitte manuell eintragen.')
@@ -110,8 +124,9 @@ export default function NewRecipeChooserPage() {
   }
 
   const doSocialImport = () => {
-    const { ingredients, steps } = parseFreeText(socialText)
+    const { title, ingredients, steps } = parseFreeText(socialText)
     goToForm({
+      ...(title ? { title } : {}),
       ingredients,
       steps,
       links: socialUrl ? [{ id: crypto.randomUUID(), label: 'Instagram', url: socialUrl }] : [],
@@ -120,8 +135,8 @@ export default function NewRecipeChooserPage() {
   }
 
   const doReviewImport = () => {
-    const { ingredients, steps } = parseFreeText(reviewText)
-    goToForm({ ingredients, steps, description: '' })
+    const { title, ingredients, steps } = parseFreeText(reviewText)
+    goToForm({ ...(title ? { title } : {}), ingredients, steps, description: '' })
   }
 
   return (
@@ -152,9 +167,16 @@ export default function NewRecipeChooserPage() {
       )}
 
       <ImportCard icon={<CameraIcon width={20} height={20} />} title="Foto scannen" onClick={() => photoInputRef.current?.click()}>
-        Foto von Kochbuch/gedrucktem Rezept – Text wird direkt auf deinem Gerät erkannt. Du kannst den erkannten Text danach noch korrigieren.
+        Foto(s) von Kochbuch/gedrucktem Rezept – auch mehrere auf einmal (z. B. mehrere Screenshots desselben Rezepts). Text wird direkt auf deinem Gerät erkannt und danach zusammengeführt, doppelte Zeilen werden automatisch entfernt. Du kannst den erkannten Text danach noch korrigieren.
       </ImportCard>
-      <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && doPhotoImport(e.target.files[0])} />
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => e.target.files && e.target.files.length > 0 && doPhotoImport(Array.from(e.target.files))}
+      />
 
       <ImportCard icon={<PdfIcon width={20} height={20} />} title="Aus PDF importieren" onClick={() => pdfInputRef.current?.click()}>
         PDF-Datei mit einem Rezept einlesen – funktioniert bei PDFs mit echtem Text (z. B. von einer Webseite exportiert).
