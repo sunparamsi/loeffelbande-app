@@ -4,9 +4,10 @@ import { repo } from '../data'
 import { useAuth } from '../lib/useAuth'
 import { useCategories } from '../lib/useCategories'
 import { getWakeLockPref, setWakeLockPref, getMemberAvatar, setMemberAvatar, memberAvatarKey } from '../lib/prefs'
-import { fileToCompressedDataUrl } from '../lib/image'
+import { fileToCompressedDataUrl, fileToDataUrl } from '../lib/image'
 import { GroupLabel, RowCard } from '../components/ui'
 import { XIcon, PlusIcon, CameraIcon, LogoutIcon } from '../icons'
+import AvatarCropModal from '../components/AvatarCropModal'
 
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
@@ -29,6 +30,11 @@ export default function SettingsPage() {
   const [pushOn, setPushOn] = useState(false)
   const [wakeLock, setWakeLock] = useState(getWakeLockPref())
   const [pushStatus, setPushStatus] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
+  const [nameError, setNameError] = useState<string | null>(null)
+  const [savingName, setSavingName] = useState(false)
+  const [avatarToCrop, setAvatarToCrop] = useState<string | null>(null)
 
   const avatarKey = memberAvatarKey(authState?.household?.id, authState?.currentMemberName)
 
@@ -54,9 +60,17 @@ export default function SettingsPage() {
   }
 
   const onPickAvatar = async (file: File) => {
-    const dataUrl = await fileToCompressedDataUrl(file, 320, 0.85)
-    setMemberAvatar(avatarKey, dataUrl)
-    setAvatar(dataUrl)
+    // Bild unverändert (in voller Auflösung) einlesen und erst im
+    // Zuschneide-Dialog anzeigen, statt es ungefragt komplett zu übernehmen –
+    // so kann der gewünschte Ausschnitt frei gewählt werden.
+    const dataUrl = await fileToDataUrl(file)
+    setAvatarToCrop(dataUrl)
+  }
+
+  const onCropConfirm = (croppedDataUrl: string) => {
+    setMemberAvatar(avatarKey, croppedDataUrl)
+    setAvatar(croppedDataUrl)
+    setAvatarToCrop(null)
   }
 
   const removeAvatar = () => {
@@ -91,6 +105,32 @@ export default function SettingsPage() {
     const next = !wakeLock
     setWakeLock(next)
     setWakeLockPref(next)
+  }
+
+  const startEditName = () => {
+    setNameDraft(authState?.currentMemberName ?? '')
+    setNameError(null)
+    setEditingName(true)
+  }
+
+  const saveName = async () => {
+    if (!nameDraft.trim()) {
+      setNameError('Bitte einen Namen angeben.')
+      return
+    }
+    setSavingName(true)
+    setNameError(null)
+    try {
+      const res = await repo.updateDisplayName(nameDraft.trim())
+      if (res.ok) {
+        setEditingName(false)
+        await refresh()
+      } else {
+        setNameError(res.error)
+      }
+    } finally {
+      setSavingName(false)
+    }
   }
 
   const logout = async () => {
@@ -134,12 +174,39 @@ export default function SettingsPage() {
       </div>
 
       <GroupLabel>Profil</GroupLabel>
-      <RowCard>
-        <div>
-          {authState?.currentMemberName ?? 'Du'} {repo.mode === 'cloud' && <span className="text-cream-soft">· {authState?.currentRole === 'owner' ? 'Besitzer' : authState?.currentRole === 'editor' ? 'Bearbeiter' : 'Betrachter'}</span>}
+      {editingName ? (
+        <div className="mx-[18px] mb-2 rounded-[10px] border border-dashed border-rust px-3 py-2.5">
+          <input
+            autoFocus
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && saveName()}
+            placeholder="Dein Name…"
+            className="w-full min-w-0 bg-transparent text-[13px] text-cream placeholder:text-rust/70 focus:outline-none"
+          />
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              onClick={saveName}
+              disabled={savingName}
+              className="rounded-full bg-rust-solid px-3.5 py-1.5 text-[11px] font-bold text-white disabled:opacity-50"
+            >
+              {savingName ? 'Speichere…' : 'Speichern'}
+            </button>
+            <button onClick={() => setEditingName(false)} className="rounded-full border border-line px-3.5 py-1.5 text-[11px] font-bold text-cream-soft">
+              Abbrechen
+            </button>
+          </div>
+          {nameError && <div className="mt-1.5 text-[11px] text-rust">{nameError}</div>}
         </div>
-        {repo.mode === 'cloud' && <div className="rounded-md bg-surface-2 px-2.5 py-1 text-[11.5px] text-cream-soft">{authState?.household?.name}</div>}
-      </RowCard>
+      ) : (
+        <RowCard onClick={startEditName}>
+          <div>
+            {authState?.currentMemberName ?? 'Du'} {repo.mode === 'cloud' && <span className="text-cream-soft">· {authState?.currentRole === 'owner' ? 'Besitzer' : authState?.currentRole === 'editor' ? 'Bearbeiter' : 'Betrachter'}</span>}
+          </div>
+          {repo.mode === 'cloud' && <div className="rounded-md bg-surface-2 px-2.5 py-1 text-[11.5px] text-cream-soft">{authState?.household?.name}</div>}
+          <div className="text-[11px] font-bold text-rust">Bearbeiten</div>
+        </RowCard>
+      )}
 
       <GroupLabel>Dein Profilbild</GroupLabel>
       <RowCard>
@@ -184,7 +251,7 @@ export default function SettingsPage() {
           onChange={(e) => setNewCat(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && addCategory()}
           placeholder="Neue Kategorie…"
-          className="flex-1 bg-transparent text-[13px] text-cream placeholder:text-rust/70 focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent text-[13px] text-cream placeholder:text-rust/70 focus:outline-none"
         />
         <button onClick={addCategory} className="text-rust">
           <PlusIcon width={16} height={16} />
@@ -229,6 +296,8 @@ export default function SettingsPage() {
         <div>Version</div>
         <div className="rounded-md bg-surface-2 px-2.5 py-1 text-[11.5px] text-cream-soft">1.0.0</div>
       </RowCard>
+
+      {avatarToCrop && <AvatarCropModal imageSrc={avatarToCrop} onCancel={() => setAvatarToCrop(null)} onConfirm={onCropConfirm} />}
     </div>
   )
 }

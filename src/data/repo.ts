@@ -45,6 +45,8 @@ export interface Repository {
   listMembers(): Promise<Member[]>
   setMemberRole(memberId: string, role: Role): Promise<void>
   removeMember(memberId: string): Promise<void>
+  /** Ändert den eigenen Anzeigenamen (im Solo-Modus nur lokal auf diesem Gerät). */
+  updateDisplayName(name: string): Promise<JoinResult>
 
   listRecipes(): Promise<Recipe[]>
   getRecipe(id: string): Promise<Recipe | undefined>

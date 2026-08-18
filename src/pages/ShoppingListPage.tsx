@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import { repo } from '../data'
 import type { ShoppingListItem, Recipe } from '../db/types'
 import { PlusIcon, CheckIcon, TrashIcon } from '../icons'
@@ -24,25 +25,32 @@ export default function ShoppingListPage() {
     return unsub
   }, [])
 
+  // Optimistisch (sofort im lokalen State ändern, dann erst im Hintergrund
+  // speichern) statt nach jeder Aktion komplett neu zu laden – fühlt sich
+  // beim An-/Abhaken sofort und "satt" an (ähnlich wie bei Bring!), statt
+  // dass die App auf die Antwort der Datenbank wartet, bevor sich sichtbar
+  // etwas tut. Im Verbunden-Modus sorgt subscribeToChanges weiterhin dafür,
+  // dass Änderungen anderer Haushaltsmitglieder ankommen.
   const toggle = async (item: ShoppingListItem) => {
     const nextChecked = !item.checked
-    await repo.saveShoppingItem({ ...item, checked: nextChecked })
+    const updated = { ...item, checked: nextChecked }
+    setItems((prev) => prev.map((i) => (i.id === item.id ? updated : i)))
+    await repo.saveShoppingItem(updated)
     // Als "gekauft" markiert -> wandert automatisch in den Vorrat (gleicher
     // Name + Einheit wird zusammengeführt/addiert). Beim Zurücksetzen wird
     // nichts aus dem Vorrat entfernt, falls dort inzwischen manuell etwas
     // angepasst wurde.
     if (nextChecked) await addPurchasedItemToPantry(item)
-    load()
   }
 
   const remove = async (id: string) => {
+    setItems((prev) => prev.filter((i) => i.id !== id))
     await repo.deleteShoppingItem(id)
-    load()
   }
 
   const add = async () => {
     if (!name.trim()) return
-    await repo.saveShoppingItem({
+    const newItem: ShoppingListItem = {
       id: crypto.randomUUID(),
       name: name.trim(),
       quantity: qty ? Number(qty) : null,
@@ -50,12 +58,13 @@ export default function ShoppingListPage() {
       checked: false,
       fromRecipeIds: [],
       addedAt: Date.now(),
-    })
+    }
+    setItems((prev) => [...prev, newItem])
     setName('')
     setQty('')
     setUnit('')
     setAdding(false)
-    load()
+    await repo.saveShoppingItem(newItem)
   }
 
   const recipeTitle = (rid: string) => recipes.find((r) => r.id === rid)?.title
@@ -90,17 +99,26 @@ export default function ShoppingListPage() {
 
       {items.length === 0 && <div className="mx-[18px] rounded-2xl border border-dashed border-line p-8 text-center text-[12.5px] text-cream-soft">Einkaufsliste ist leer.</div>}
 
-      {open.map((item) => (
-        <Row key={item.id} item={item} recipeTitle={recipeTitle} onToggle={toggle} onRemove={remove} />
-      ))}
+      <AnimatePresence initial={false}>
+        {open.map((item) => (
+          <Row key={item.id} item={item} recipeTitle={recipeTitle} onToggle={toggle} onRemove={remove} />
+        ))}
+      </AnimatePresence>
       {done.length > 0 && <div className="px-[18px] pb-2 pt-4 text-[10.5px] font-bold uppercase tracking-wider text-cream-soft">Erledigt</div>}
-      {done.map((item) => (
-        <Row key={item.id} item={item} recipeTitle={recipeTitle} onToggle={toggle} onRemove={remove} />
-      ))}
+      <AnimatePresence initial={false}>
+        {done.map((item) => (
+          <Row key={item.id} item={item} recipeTitle={recipeTitle} onToggle={toggle} onRemove={remove} />
+        ))}
+      </AnimatePresence>
     </div>
   )
 }
 
+/** Zeile in der Einkaufsliste – angelehnt an das An-/Abhak-Gefühl von Bring!:
+ * die ganze Zeile ist der Tap-Ziel (nicht nur der kleine Kreis), reagiert mit
+ * einem kurzen "Zusammendrücken" auf den Tap, der Haken poppt beim Abhaken
+ * spürbar rein, und die Zeile gleitet weich aus der offenen Liste raus (bzw.
+ * beim Zurückholen wieder rein), statt abrupt zu verschwinden. */
 function Row({
   item,
   recipeTitle,
@@ -114,13 +132,32 @@ function Row({
 }) {
   const fromLabel = item.fromRecipeIds.length > 0 ? `für ${item.fromRecipeIds.map(recipeTitle).filter(Boolean).join(', ')}` : 'manuell hinzugefügt'
   return (
-    <div className={`mx-[18px] mb-2 flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3.5 shadow-card-sm ${item.checked ? 'opacity-45' : ''}`}>
-      <button
-        onClick={() => onToggle(item)}
-        className={`flex h-[19px] w-[19px] flex-shrink-0 items-center justify-center rounded-full border ${item.checked ? 'border-sage bg-sage text-bg' : 'border-rust'}`}
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: -8, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      whileTap={{ scale: 0.97 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+      onClick={() => onToggle(item)}
+      className={`mx-[18px] mb-2 flex cursor-pointer items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3.5 shadow-card-sm ${item.checked ? 'opacity-45' : ''}`}
+    >
+      <span
+        className={`flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-full border-2 ${item.checked ? 'border-sage bg-sage text-bg' : 'border-rust'}`}
       >
-        {item.checked && <CheckIcon width={11} height={11} />}
-      </button>
+        <AnimatePresence>
+          {item.checked && (
+            <motion.span
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 600, damping: 20 }}
+            >
+              <CheckIcon width={13} height={13} />
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </span>
       <div className="flex-1">
         <div className={`text-[13.5px] font-medium text-cream ${item.checked ? 'line-through' : ''}`}>{item.name}</div>
         <div className="mt-0.5 text-[11px] text-cream-soft">{fromLabel}</div>
@@ -128,9 +165,16 @@ function Row({
       <div className="text-[12px] text-cream-soft">
         {item.quantity ?? ''} {item.unit}
       </div>
-      <button onClick={() => onRemove(item.id)} className="text-cream-soft">
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onRemove(item.id)
+        }}
+        className="p-1 text-cream-soft"
+        aria-label="Entfernen"
+      >
         <TrashIcon width={14} height={14} />
       </button>
-    </div>
+    </motion.div>
   )
 }

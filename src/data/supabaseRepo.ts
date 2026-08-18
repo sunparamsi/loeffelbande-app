@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient'
 import type { Repository, AuthState, Member, Role, JoinResult, HouseholdInfo } from './repo'
 import type { Recipe, PantryItem, ShoppingListItem, ActivityPing, ShareLink, HouseholdSettings } from '../db/types'
+import { DEFAULT_CATEGORIES } from '../db/types'
 
 function slugify(name: string): string {
   return name
@@ -232,6 +233,13 @@ export class SupabaseRepository implements Repository {
     if (error) throw error
   }
 
+  async updateDisplayName(name: string): Promise<JoinResult> {
+    const { error } = await this.sb().rpc('update_my_display_name', { new_name: name.trim() })
+    if (error) return { ok: false, error: friendlyAuthError(error.message) }
+    this.invalidateCtx()
+    return { ok: true }
+  }
+
   async listRecipes(): Promise<Recipe[]> {
     const c = await this.requireCtx()
     const { data, error } = await this.sb().from('recipes').select('*').eq('household_id', c.householdId).order('updated_at', { ascending: false })
@@ -317,7 +325,11 @@ export class SupabaseRepository implements Repository {
     const c = await this.requireCtx()
     const { data, error } = await this.sb().from('household_settings').select('*').eq('household_id', c.householdId).maybeSingle()
     if (error) throw error
-    return { logoDataUrl: data?.logo_data_url ?? null, extraCategories: data?.extra_categories ?? [] }
+    return {
+      logoDataUrl: data?.logo_data_url ?? null,
+      extraCategories: data?.extra_categories ?? [],
+      hiddenDefaultCategories: data?.hidden_default_categories ?? [],
+    }
   }
 
   private async upsertSettingsPatch(patch: Record<string, unknown>) {
@@ -329,6 +341,7 @@ export class SupabaseRepository implements Repository {
         household_id: c.householdId,
         logo_data_url: current.logoDataUrl,
         extra_categories: current.extraCategories,
+        hidden_default_categories: current.hiddenDefaultCategories,
         ...patch,
       })
     if (error) throw error
@@ -340,12 +353,22 @@ export class SupabaseRepository implements Repository {
 
   async addCategory(name: string): Promise<void> {
     const current = await this.getSettings()
+    if (DEFAULT_CATEGORIES.includes(name)) {
+      // Eine ausgeblendete Standard-Kategorie erneut anlegen -> wieder einblenden.
+      await this.upsertSettingsPatch({ hidden_default_categories: current.hiddenDefaultCategories.filter((c) => c !== name) })
+      return
+    }
     if (current.extraCategories.includes(name)) return
     await this.upsertSettingsPatch({ extra_categories: [...current.extraCategories, name] })
   }
 
   async removeCategory(name: string): Promise<void> {
     const current = await this.getSettings()
+    if (DEFAULT_CATEGORIES.includes(name)) {
+      if (current.hiddenDefaultCategories.includes(name)) return
+      await this.upsertSettingsPatch({ hidden_default_categories: [...current.hiddenDefaultCategories, name] })
+      return
+    }
     await this.upsertSettingsPatch({ extra_categories: current.extraCategories.filter((c) => c !== name) })
   }
 

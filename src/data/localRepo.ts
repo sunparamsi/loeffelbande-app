@@ -1,17 +1,22 @@
 import { localDb } from './db'
 import type { Repository, AuthState, Member, JoinResult } from './repo'
 import type { Recipe, PantryItem, ShoppingListItem, ActivityPing, ShareLink, HouseholdSettings } from '../db/types'
+import { DEFAULT_CATEGORIES } from '../db/types'
+import { getSoloDisplayName, setSoloDisplayName } from '../lib/prefs'
 
 const SETTINGS_KEY = 'meine-rezepte-settings-v1'
+const DEFAULT_SETTINGS: HouseholdSettings = { logoDataUrl: null, extraCategories: [], hiddenDefaultCategories: [] }
 
 function readSettings(): HouseholdSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
-    if (raw) return JSON.parse(raw)
+    // Älter gespeicherte Settings (vor Einführung von hiddenDefaultCategories)
+    // per Spread mit den Defaults auffüllen, statt an fehlendem Feld zu scheitern.
+    if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }
   } catch {
     /* ignore */
   }
-  return { logoDataUrl: null, extraCategories: [] }
+  return { ...DEFAULT_SETTINGS }
 }
 
 function writeSettings(s: HouseholdSettings) {
@@ -32,7 +37,7 @@ export class LocalRepository implements Repository {
       loggedIn: true,
       household: null,
       currentRole: 'owner',
-      currentMemberName: null,
+      currentMemberName: getSoloDisplayName(),
     }
   }
 
@@ -52,6 +57,11 @@ export class LocalRepository implements Repository {
   }
   async setMemberRole(): Promise<void> {}
   async removeMember(): Promise<void> {}
+  async updateDisplayName(name: string): Promise<JoinResult> {
+    if (!name.trim()) return { ok: false, error: 'Bitte einen Namen angeben.' }
+    setSoloDisplayName(name.trim())
+    return { ok: true }
+  }
 
   async listRecipes(): Promise<Recipe[]> {
     return localDb.recipes.orderBy('updatedAt').reverse().toArray()
@@ -101,12 +111,23 @@ export class LocalRepository implements Repository {
   }
   async addCategory(name: string): Promise<void> {
     const s = readSettings()
-    if (!s.extraCategories.includes(name)) s.extraCategories.push(name)
+    if (DEFAULT_CATEGORIES.includes(name)) {
+      // Eine ausgeblendete Standard-Kategorie erneut anlegen -> wieder einblenden.
+      s.hiddenDefaultCategories = s.hiddenDefaultCategories.filter((c) => c !== name)
+    } else if (!s.extraCategories.includes(name)) {
+      s.extraCategories.push(name)
+    }
     writeSettings(s)
   }
   async removeCategory(name: string): Promise<void> {
     const s = readSettings()
-    s.extraCategories = s.extraCategories.filter((c) => c !== name)
+    if (DEFAULT_CATEGORIES.includes(name)) {
+      // Standard-Kategorien können nicht komplett gelöscht werden (fest im
+      // Code), aber ausgeblendet, damit sie in der Auswahl nicht mehr auftauchen.
+      if (!s.hiddenDefaultCategories.includes(name)) s.hiddenDefaultCategories.push(name)
+    } else {
+      s.extraCategories = s.extraCategories.filter((c) => c !== name)
+    }
     writeSettings(s)
   }
 

@@ -79,8 +79,13 @@ create table if not exists household_settings (
   household_id uuid primary key references households(id) on delete cascade,
   logo_data_url text,
   extra_categories text[] not null default '{}',
+  hidden_default_categories text[] not null default '{}',
   updated_at timestamptz not null default now()
 );
+-- Für bereits bestehende Installationen (Tabelle existierte schon, bevor es
+-- diese Spalte gab): Spalte nachträglich ergänzen, falls sie fehlt. Bei einer
+-- frisch erstellten Tabelle über CREATE TABLE oben ist das ein No-op.
+alter table household_settings add column if not exists hidden_default_categories text[] not null default '{}';
 
 -- "Markieren"/Aktivitäts-Feed: X hat Y auf ein Rezept aufmerksam gemacht,
 -- oder ein neues Rezept wurde hinzugefügt. to_member_id = null bedeutet
@@ -147,6 +152,34 @@ language sql security definer stable as $$
 $$;
 
 grant execute on function display_name_available(uuid, text) to anon, authenticated;
+
+-- Erlaubt einem Mitglied, den EIGENEN Anzeigenamen zu ändern, ohne die
+-- allgemeine "nur Owner darf household_members updaten"-Policy zu lockern
+-- (die auch die Rolle schützt). SECURITY DEFINER umgeht RLS gezielt nur für
+-- diese eine, eng gefasste Operation.
+create or replace function update_my_display_name(new_name text) returns void
+language plpgsql security definer as $$
+declare
+  my_household_id uuid;
+begin
+  select household_id into my_household_id from household_members where user_id = auth.uid() limit 1;
+  if my_household_id is null then
+    raise exception 'Kein Haushaltsmitglied gefunden.';
+  end if;
+  if new_name is null or length(trim(new_name)) = 0 then
+    raise exception 'Bitte einen Namen angeben.';
+  end if;
+  if exists (
+    select 1 from household_members
+    where household_id = my_household_id and lower(display_name) = lower(trim(new_name)) and user_id <> auth.uid()
+  ) then
+    raise exception 'Dieser Name ist in diesem Haushalt bereits vergeben.';
+  end if;
+  update household_members set display_name = trim(new_name) where user_id = auth.uid();
+end;
+$$;
+
+grant execute on function update_my_display_name(text) to authenticated;
 
 -- updated_at automatisch pflegen ---------------------------------------------
 

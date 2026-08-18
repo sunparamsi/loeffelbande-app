@@ -3,9 +3,69 @@
  * damit URL-Import, Freitext-Parsing (Foto/PDF/Social) und ggf. weitere
  * Importwege dieselbe Erkennung nutzen. */
 export const UNIT_WORDS = [
-  // Deutsch
-  'g', 'kg', 'ml', 'l', 'el', 'tl', 'stk', 'stück', 'prise', 'bund', 'dose', 'zehe', 'zehen', 'scheibe', 'scheiben', 'päckchen', 'msp', 'tasse', 'becher',
+  // Deutsch (inkl. gängiger Pluralformen, da Freitext/OCR beide Formen liefert)
+  'g', 'kg', 'ml', 'l', 'el', 'tl', 'stk', 'stück', 'stücke', 'prise', 'prisen', 'bund', 'bunde', 'dose', 'dosen', 'zehe', 'zehen',
+  'scheibe', 'scheiben', 'päckchen', 'msp', 'tasse', 'tassen', 'becher',
   // Englisch
   'cup', 'cups', 'oz', 'ounce', 'ounces', 'lb', 'lbs', 'pound', 'pounds', 'tbsp', 'tbsp.', 'tablespoon', 'tablespoons', 'tsp', 'tsp.', 'teaspoon', 'teaspoons',
   'clove', 'cloves', 'can', 'cans', 'package', 'packages', 'pkg', 'slice', 'slices', 'pinch', 'bunch', 'stick', 'sticks', 'quart', 'quarts', 'pint', 'pints', 'gallon', 'gallons',
 ]
+
+/** Nicht-metrische Maßeinheiten (US/UK), die automatisch nach Gramm/Kilo
+ * (Gewicht) bzw. Milliliter/Liter (Volumen) umgerechnet werden, damit
+ * importierte Rezepte aus englischsprachigen Quellen mit metrischen Angaben
+ * angezeigt werden. Umgerechnet wird nur, was eindeutig ist (Gewicht bzw.
+ * Volumen) – bei Volumeneinheiten wie "cup" bleibt es bei ml/l, da eine
+ * Umrechnung in Gramm von der Dichte der jeweiligen Zutat abhinge (z. B. 1
+ * Tasse Mehl ≠ 1 Tasse Zucker in Gramm) und ohne Zutaten-Datenbank nicht
+ * zuverlässig möglich ist. */
+const MASS_TO_GRAMS: Record<string, number> = {
+  oz: 28.3495,
+  ounce: 28.3495,
+  ounces: 28.3495,
+  lb: 453.592,
+  lbs: 453.592,
+  pound: 453.592,
+  pounds: 453.592,
+}
+
+const VOLUME_TO_ML: Record<string, number> = {
+  cup: 236.588,
+  cups: 236.588,
+  tbsp: 14.7868,
+  'tbsp.': 14.7868,
+  tablespoon: 14.7868,
+  tablespoons: 14.7868,
+  tsp: 4.92892,
+  'tsp.': 4.92892,
+  teaspoon: 4.92892,
+  teaspoons: 4.92892,
+  pint: 473.176,
+  pints: 473.176,
+  quart: 946.353,
+  quarts: 946.353,
+  gallon: 3785.41,
+  gallons: 3785.41,
+}
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10
+}
+
+/** Rechnet Menge/Einheit einer Zutat auf metrische Einheiten um, falls die
+ * Einheit eine bekannte nicht-metrische Gewichts- oder Volumeneinheit ist
+ * (z. B. "1 lb" -> "453.6 g", "2 cups" -> "473.2 ml"). Unbekannte oder
+ * bereits metrische Einheiten (g, kg, ml, l, Stück, …) bleiben unverändert. */
+export function convertToMetric(quantity: number | null, unit: string): { quantity: number | null; unit: string } {
+  if (quantity == null) return { quantity, unit }
+  const key = unit.trim().toLowerCase()
+  if (key in MASS_TO_GRAMS) {
+    const grams = quantity * MASS_TO_GRAMS[key]
+    return grams >= 1000 ? { quantity: round1(grams / 1000), unit: 'kg' } : { quantity: round1(grams), unit: 'g' }
+  }
+  if (key in VOLUME_TO_ML) {
+    const ml = quantity * VOLUME_TO_ML[key]
+    return ml >= 1000 ? { quantity: round1(ml / 1000), unit: 'l' } : { quantity: round1(ml), unit: 'ml' }
+  }
+  return { quantity, unit }
+}

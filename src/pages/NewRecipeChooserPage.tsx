@@ -22,7 +22,10 @@ export default function NewRecipeChooserPage() {
   const [error, setError] = useState<string | null>(null)
   const [socialUrl, setSocialUrl] = useState('')
   const [socialText, setSocialText] = useState('')
+  const [socialTitle, setSocialTitle] = useState('')
+  const [socialTitleTouched, setSocialTitleTouched] = useState(false)
   const [reviewText, setReviewText] = useState('')
+  const [reviewTitle, setReviewTitle] = useState('')
   const [reviewSource, setReviewSource] = useState<ReviewSource>('photo')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
@@ -72,6 +75,7 @@ export default function NewRecipeChooserPage() {
       }
       setReviewSource('photo')
       setReviewText(merged.trim())
+      setReviewTitle(parseFreeText(merged.trim()).title)
       setPanel('review')
     } catch {
       setError('Texterkennung ist fehlgeschlagen. Bitte manuell eintragen.')
@@ -93,6 +97,7 @@ export default function NewRecipeChooserPage() {
       }
       setReviewSource('pdf')
       setReviewText(text.trim())
+      setReviewTitle(parseFreeText(text.trim()).title)
       setPanel('review')
     } catch {
       setError('PDF konnte nicht gelesen werden. Bitte eine normale, nicht passwortgeschützte PDF-Datei verwenden.')
@@ -123,8 +128,18 @@ export default function NewRecipeChooserPage() {
     }
   }
 
+  const onSocialTextChange = (value: string) => {
+    setSocialText(value)
+    // Solange der Titel nicht selbst bearbeitet wurde, live einen Vorschlag
+    // aus dem eingefügten Text ableiten (ändert sich der Text, ändert sich
+    // auch der Vorschlag) – sobald der Nutzer den Titel selbst anfasst, wird
+    // dieser nicht mehr überschrieben.
+    if (!socialTitleTouched) setSocialTitle(parseFreeText(value).title)
+  }
+
   const doSocialImport = () => {
-    const { title, ingredients, steps } = parseFreeText(socialText)
+    const { ingredients, steps } = parseFreeText(socialText)
+    const title = socialTitle.trim()
     goToForm({
       ...(title ? { title } : {}),
       ingredients,
@@ -135,7 +150,8 @@ export default function NewRecipeChooserPage() {
   }
 
   const doReviewImport = () => {
-    const { title, ingredients, steps } = parseFreeText(reviewText)
+    const { ingredients, steps } = parseFreeText(reviewText)
+    const title = reviewTitle.trim()
     goToForm({ ...(title ? { title } : {}), ingredients, steps, description: '' })
   }
 
@@ -195,7 +211,18 @@ export default function NewRecipeChooserPage() {
       {panel === 'social' && (
         <div className="mx-[18px] mb-3 rounded-2xl border border-line bg-surface p-4 shadow-card-sm">
           <TextInput value={socialUrl} onChange={(e) => setSocialUrl(e.target.value)} placeholder="Link zum Beitrag (optional)" className="mb-2.5" />
-          <TextArea rows={5} value={socialText} onChange={(e) => setSocialText(e.target.value)} placeholder="Bildunterschrift/Text hier einfügen…" />
+          <TextArea rows={5} value={socialText} onChange={(e) => onSocialTextChange(e.target.value)} placeholder="Bildunterschrift/Text hier einfügen…" />
+          <div className="mt-2.5">
+            <div className="mb-1 text-[11px] font-bold text-cream">Titel{!socialTitle.trim() && ' (nicht erkannt – bitte eintragen)'}</div>
+            <TextInput
+              value={socialTitle}
+              onChange={(e) => {
+                setSocialTitleTouched(true)
+                setSocialTitle(e.target.value)
+              }}
+              placeholder="Titel des Rezepts…"
+            />
+          </div>
           <PrimaryButton className="mt-3 w-full" onClick={doSocialImport}>
             Übernehmen
           </PrimaryButton>
@@ -209,6 +236,10 @@ export default function NewRecipeChooserPage() {
           </div>
           <div className="mb-2.5 text-[11.5px] leading-relaxed text-cream-soft">
             Erkennung ist nicht immer perfekt. Korrigiere hier offensichtliche Fehler (z. B. verdrehte Zahlen/Einheiten), bevor daraus Zutaten &amp; Schritte gebaut werden – im nächsten Formular kannst du danach ohnehin noch alles anpassen.
+          </div>
+          <div className="mb-2.5">
+            <div className="mb-1 text-[11px] font-bold text-cream">Titel{!reviewTitle.trim() && ' (nicht erkannt – bitte eintragen)'}</div>
+            <TextInput value={reviewTitle} onChange={(e) => setReviewTitle(e.target.value)} placeholder="Titel des Rezepts…" />
           </div>
           <TextArea rows={10} value={reviewText} onChange={(e) => setReviewText(e.target.value)} />
           <PrimaryButton className="mt-3 w-full" onClick={doReviewImport}>

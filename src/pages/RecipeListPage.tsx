@@ -69,13 +69,13 @@ export default function RecipeListPage() {
       </div>
 
       <div className="flex items-center gap-2.5 px-[18px] pb-4">
-        <div className="flex flex-1 items-center gap-2 rounded-full bg-surface-2 px-4 py-2.5">
+        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-surface-2 px-4 py-2.5">
           <SearchIcon width={16} height={16} className="flex-shrink-0 text-cream-soft" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Rezept, Zutat oder Tag suchen…"
-            className="w-full bg-transparent text-[13.5px] text-cream placeholder:text-cream-soft focus:outline-none"
+            className="w-full min-w-0 bg-transparent text-[13.5px] text-cream placeholder:text-cream-soft focus:outline-none"
           />
         </div>
         <button

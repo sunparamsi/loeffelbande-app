@@ -1,5 +1,5 @@
 import type { Ingredient, Recipe, RecipeStep } from '../db/types'
-import { UNIT_WORDS } from './units'
+import { UNIT_WORDS, convertToMetric } from './units'
 
 function isoDurationToMinutes(iso?: string): number | undefined {
   if (!iso) return undefined
@@ -73,7 +73,12 @@ export async function importFromUrl(url: string): Promise<Partial<Recipe> | null
     rawIngredients.length > 2 &&
     rawIngredients.every((i) => !i.name.trim()) &&
     new Set(rawIngredients.map((i) => `${i.quantity}|${i.unit}`)).size === 1
-  const ingredients = looksBroken ? [] : rawIngredients
+  // Zusätzlich (unabhängig vom obigen Fall): Einzelne Zeilen ganz ohne Namen
+  // sind für sich genommen nutzlos (z. B. wenn die Quellseite nur "250 g"
+  // ohne Zutatentext liefert) – so eine Zeile zeigt am Ende nur Menge/Einheit
+  // ohne erkennbare Zutat an, was wie ein Darstellungsfehler aussieht. Lieber
+  // weglassen, als eine leere "Geister-Zutat" anzuzeigen.
+  const ingredients = (looksBroken ? [] : rawIngredients).filter((i) => i.name.trim().length > 0)
 
   let rawSteps: string[] = []
   if (Array.isArray(n.recipeInstructions)) {
@@ -109,7 +114,9 @@ export async function importFromUrl(url: string): Promise<Partial<Recipe> | null
 function parseIngredientLine(line: string): Ingredient {
   const m = line.match(/^([\d½¼¾⅓⅔.,/]+)\s*([a-zA-Zäöüß.]*)\s*(.*)$/)
   if (m && UNIT_WORDS.includes(m[2].toLowerCase())) {
-    return { id: crypto.randomUUID(), quantity: Number(m[1].replace(',', '.')) || null, unit: m[2], name: m[3] }
+    const qty = Number(m[1].replace(',', '.')) || null
+    const { quantity, unit } = convertToMetric(qty, m[2])
+    return { id: crypto.randomUUID(), quantity, unit, name: m[3] }
   }
   if (m && m[2] && !m[3]) {
     // Zahl gefolgt von genau einem Wort, das keine bekannte Einheit ist –

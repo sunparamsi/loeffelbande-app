@@ -312,7 +312,7 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
         <div key={ing.id} className="mb-2 flex items-center gap-2 px-[18px]">
           <TextInput className="w-[62px] flex-shrink-0" value={ing.quantity ?? ''} onChange={(e) => updateIngredient(ing.id, { quantity: e.target.value ? Number(e.target.value) : null })} placeholder="250" />
           <TextInput className="w-[62px] flex-shrink-0" value={ing.unit} onChange={(e) => updateIngredient(ing.id, { unit: e.target.value })} placeholder="g" />
-          <TextInput className="flex-1" value={ing.name} onChange={(e) => updateIngredient(ing.id, { name: e.target.value })} placeholder="Spaghetti" />
+          <TextInput className="min-w-0 flex-1" value={ing.name} onChange={(e) => updateIngredient(ing.id, { name: e.target.value })} placeholder="Spaghetti" />
           <button onClick={() => removeIngredient(ing.id)} className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] border border-line text-cream-soft">
             <XIcon width={14} height={14} />
           </button>
@@ -326,7 +326,7 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
       {recipe.steps.map((s, idx) => (
         <div key={s.id} className="mb-2.5 flex items-start gap-2.5 px-[18px]">
           <div className="mt-1.5 flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-full bg-rust-solid text-xs font-bold text-bg">{idx + 1}</div>
-          <TextArea rows={2} className="flex-1" value={s.text} onChange={(e) => updateStep(s.id, e.target.value)} placeholder="Beschreibung dieses Schritts…" />
+          <TextArea rows={2} className="min-w-0 flex-1" value={s.text} onChange={(e) => updateStep(s.id, e.target.value)} placeholder="Beschreibung dieses Schritts…" />
           <button onClick={() => removeStep(s.id)} className="mt-1.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] border border-line text-cream-soft">
             <XIcon width={14} height={14} />
           </button>
@@ -345,7 +345,7 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
             <option>TikTok</option>
             <option>Webseite</option>
           </select>
-          <TextInput className="flex-1" value={l.url} onChange={(e) => updateLink(l.id, { url: e.target.value })} placeholder="https://…" />
+          <TextInput className="min-w-0 flex-1" value={l.url} onChange={(e) => updateLink(l.id, { url: e.target.value })} placeholder="https://…" />
           <button onClick={() => removeLink(l.id)} className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] border border-line text-cream-soft">
             <XIcon width={14} height={14} />
           </button>

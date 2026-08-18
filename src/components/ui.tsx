@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { twMerge } from 'tailwind-merge'
 
 export function Chip({
   children,
@@ -74,7 +75,10 @@ export function PrimaryButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`flex items-center justify-center gap-2 rounded-full border border-rust-solid bg-rust-solid px-4 py-3.5 text-[13px] font-bold text-white shadow-[0_10px_24px_rgba(242,129,74,0.35)] disabled:opacity-50 ${className}`}
+      className={twMerge(
+        'flex items-center justify-center gap-2 rounded-full border border-rust-solid bg-rust-solid px-4 py-3.5 text-[13px] font-bold text-white shadow-[0_10px_24px_rgba(242,129,74,0.35)] disabled:opacity-50',
+        className,
+      )}
     >
       {children}
     </button>
@@ -94,7 +98,7 @@ export function OutlineButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center justify-center gap-2 rounded-full border-[1.5px] border-cream px-4 py-3.5 text-[13px] font-bold text-cream ${className}`}
+      className={twMerge('flex items-center justify-center gap-2 rounded-full border-[1.5px] border-cream px-4 py-3.5 text-[13px] font-bold text-cream', className)}
     >
       {children}
     </button>
@@ -106,7 +110,16 @@ export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...rest}
-      className={`w-full rounded-xl border border-line bg-surface px-3.5 py-3 text-sm text-cream placeholder:text-cream-soft/70 focus:outline-none focus:border-rust ${className}`}
+      // twMerge statt reiner String-Konkatenation: verhindert, dass das fest
+      // eingebaute "w-full" eine von außen übergebene Breite (z. B. "w-[62px]"
+      // oder "flex-1" in mehrspaltigen Zeilen wie der Zutatenliste) im
+      // generierten CSS zufällig überstimmt – Tailwind entscheidet bei
+      // gleicher Spezifität nach Reihenfolge im Stylesheet, nicht nach
+      // Reihenfolge in der class-Angabe, daher reichte reines Anhängen nicht.
+      className={twMerge(
+        'w-full rounded-xl border border-line bg-surface px-3.5 py-3 text-sm text-cream placeholder:text-cream-soft/70 focus:outline-none focus:border-rust',
+        className,
+      )}
     />
   )
 }
@@ -116,7 +129,10 @@ export function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
   return (
     <textarea
       {...rest}
-      className={`w-full resize-none rounded-xl border border-line bg-surface px-3.5 py-3 text-sm text-cream placeholder:text-cream-soft/70 focus:outline-none focus:border-rust ${className}`}
+      className={twMerge(
+        'w-full resize-none rounded-xl border border-line bg-surface px-3.5 py-3 text-sm text-cream placeholder:text-cream-soft/70 focus:outline-none focus:border-rust',
+        className,
+      )}
     />
   )
 }

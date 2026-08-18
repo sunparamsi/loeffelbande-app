@@ -13,10 +13,13 @@
     "@supabase/supabase-js": "^2.112.3",
     "dexie": "^4.4.5",
     "dexie-react-hooks": "^4.4.0",
+    "motion": "^13.1.0",
     "pdfjs-dist": "^4.10.38",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-easy-crop": "^6.2.3",
     "react-router-dom": "^7.18.2",
+    "tailwind-merge": "^3.6.0",
     "tesseract.js": "^7.0.0",
     "uuid": "^14.0.1",
     "workbox-precaching": "^7.4.1"

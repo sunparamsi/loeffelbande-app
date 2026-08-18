@@ -28,3 +28,16 @@ export function setMemberAvatar(key: string, dataUrl: string | null) {
 export function memberAvatarKey(householdId: string | null | undefined, memberName: string | null | undefined) {
   return `${householdId ?? 'solo'}::${memberName ?? 'me'}`
 }
+
+/** Anzeigename im Solo-Modus — es gibt dort keine Haushaltsmitglieder-Tabelle,
+ * daher nur lokal auf diesem Gerät gespeichert. */
+const SOLO_NAME_KEY = 'loeffelbande-solo-name'
+
+export function getSoloDisplayName(): string | null {
+  return localStorage.getItem(SOLO_NAME_KEY)
+}
+
+export function setSoloDisplayName(name: string | null) {
+  if (name && name.trim()) localStorage.setItem(SOLO_NAME_KEY, name.trim())
+  else localStorage.removeItem(SOLO_NAME_KEY)
+}

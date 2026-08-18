@@ -94,6 +94,8 @@ export interface ShareLink {
 export interface HouseholdSettings {
   logoDataUrl: string | null
   extraCategories: string[]
+  /** Standard-Kategorien (aus DEFAULT_CATEGORIES), die ausgeblendet wurden. */
+  hiddenDefaultCategories: string[]
 }
 
 export const DEFAULT_CATEGORIES = [
