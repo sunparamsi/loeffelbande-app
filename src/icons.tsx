@@ -40,6 +40,7 @@ export const UploadIcon = (p: IconProps) => base(<><path d="M4 12v7a1 1 0 0 0 1 
 export const LinkIcon = (p: IconProps) => base(<><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /><path d="M8 11h6" /></>, p)
 export const CameraIcon = (p: IconProps) => base(<><path d="M4 7h4l2-2h6l2 2h4v12H3V7Z" transform="translate(0.5 0)" /><circle cx="12" cy="13" r="3.5" /></>, p)
 export const FileIcon = (p: IconProps) => base(<><path d="M4 3h10l6 6v12H4V3Z" /><path d="M14 3v6h6" /></>, p)
+export const PdfIcon = (p: IconProps) => base(<><path d="M4 3h10l6 6v12H4V3Z" /><path d="M14 3v6h6" /><path d="M7.5 17.5v-4h1.3a1.2 1.2 0 0 1 0 2.4H7.5" /><path d="M11.3 17.5v-4h1.4" /><path d="M11.3 15.6h1.1" /><path d="M15 17.5v-4h1.6" /></>, p)
 export const InstagramIcon = (p: IconProps) => base(<><rect x="3" y="3" width="18" height="18" rx="4.5" /><circle cx="12" cy="12" r="3.5" /><circle cx="17.5" cy="6.5" r="0.9" fill="currentColor" stroke="none" /></>, p)
 export const PlayIcon = (p: IconProps) => base(<path d="M5 3v18l15-9L5 3Z" fill="currentColor" stroke="none" />, p)
 export const TrashIcon = (p: IconProps) => base(<><path d="M4 7h16" /><path d="M9 7V4h6v3" /><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" /></>, p)

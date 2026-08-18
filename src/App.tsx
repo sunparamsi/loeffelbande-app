@@ -19,7 +19,7 @@ import OnboardingPage from './pages/OnboardingPage'
 import SharedRecipePage from './pages/SharedRecipePage'
 import { useOnline } from './lib/useOnline'
 
-const SPLASH_MIN_MS = 700
+const SPLASH_MIN_MS = 2000
 const SPLASH_EXIT_MS = 350
 
 /** Zeigt den Splash-Screen mind. SPLASH_MIN_MS lang (fühlt sich wie eine

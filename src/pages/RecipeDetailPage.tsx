@@ -205,7 +205,8 @@ export default function RecipeDetailPage() {
                 rel="noreferrer"
                 className="mt-2 flex items-center gap-2.5 rounded-[14px] border border-line bg-surface px-3.5 py-3 text-[12.5px] text-cream-soft shadow-card-sm"
               >
-                <LinkIcon width={16} height={16} /> {recipe.sourceUrl}
+                <LinkIcon width={16} height={16} className="flex-shrink-0" />
+                <span className="min-w-0 truncate">{hostnameLabel(recipe.sourceUrl)}</span>
               </a>
             )}
             {recipe.links.map((l) => (
@@ -216,8 +217,10 @@ export default function RecipeDetailPage() {
                 rel="noreferrer"
                 className="mt-2 flex items-center gap-2.5 rounded-[14px] border border-line bg-surface px-3.5 py-3 text-[12.5px] text-cream-soft shadow-card-sm"
               >
-                {l.label.toLowerCase().includes('insta') ? <InstagramIcon width={16} height={16} /> : <PlayIcon width={14} height={14} />}
-                {l.label}: {l.url}
+                <span className="flex-shrink-0">
+                  {l.label.toLowerCase().includes('insta') ? <InstagramIcon width={16} height={16} /> : <PlayIcon width={14} height={14} />}
+                </span>
+                <span className="min-w-0 truncate">{l.label}</span>
               </a>
             ))}
           </>
@@ -297,4 +300,14 @@ export default function RecipeDetailPage() {
       </div>
     </div>
   )
+}
+
+/** Zeigt bei Quellen-Links nur die Domain statt der vollen (oft langen) URL an,
+ * damit die Karte nicht durch den Linktext gesprengt wird. */
+function hostnameLabel(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return url
+  }
 }

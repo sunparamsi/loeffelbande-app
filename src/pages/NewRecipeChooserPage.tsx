@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { repo } from '../data'
-import { ArrowLeftIcon, EditIcon, SearchIcon, CameraIcon, FileIcon, InstagramIcon } from '../icons'
+import { ArrowLeftIcon, EditIcon, SearchIcon, CameraIcon, FileIcon, PdfIcon, InstagramIcon } from '../icons'
 import { PrimaryButton, TextInput, TextArea } from '../components/ui'
 import { importFromUrl } from '../lib/urlImport'
 import { recognizeText } from '../lib/ocr'
@@ -9,7 +9,8 @@ import { parseFreeText } from '../lib/textParse'
 import { parseJsonFile, parseCsvFile } from '../lib/fileImport'
 import type { Recipe } from '../db/types'
 
-type Panel = null | 'url' | 'photo' | 'file' | 'social'
+type Panel = null | 'url' | 'file' | 'social' | 'review'
+type ReviewSource = 'photo' | 'pdf'
 
 export default function NewRecipeChooserPage() {
   const navigate = useNavigate()
@@ -20,8 +21,11 @@ export default function NewRecipeChooserPage() {
   const [error, setError] = useState<string | null>(null)
   const [socialUrl, setSocialUrl] = useState('')
   const [socialText, setSocialText] = useState('')
+  const [reviewText, setReviewText] = useState('')
+  const [reviewSource, setReviewSource] = useState<ReviewSource>('photo')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
+  const pdfInputRef = useRef<HTMLInputElement>(null)
 
   const goToForm = (prefill: Partial<Recipe>) => navigate('/rezepte/neu/formular', { state: { prefill } })
 
@@ -48,10 +52,36 @@ export default function NewRecipeChooserPage() {
     setError(null)
     try {
       const text = await recognizeText(file, setProgress)
-      const { ingredients, steps } = parseFreeText(text)
-      goToForm({ ingredients, steps, description: '' })
+      if (!text.trim()) {
+        setError('Es konnte kein Text im Foto erkannt werden. Achte auf gute Beleuchtung, scharfen Fokus und dass der Text möglichst gerade/frontal im Bild steht – oder trag das Rezept manuell ein.')
+        return
+      }
+      setReviewSource('photo')
+      setReviewText(text.trim())
+      setPanel('review')
     } catch {
       setError('Texterkennung ist fehlgeschlagen. Bitte manuell eintragen.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const doPdfImport = async (file: File) => {
+    setBusy(true)
+    setProgress(0)
+    setError(null)
+    try {
+      const { extractTextFromPdf } = await import('../lib/pdfImport')
+      const text = await extractTextFromPdf(file, setProgress)
+      if (!text.trim()) {
+        setError('In dieser PDF konnte kein Text gefunden werden – vermutlich ist sie aus gescannten Bildern zusammengesetzt. Versuch es stattdessen über "Foto scannen" mit einem Bild einer Seite.')
+        return
+      }
+      setReviewSource('pdf')
+      setReviewText(text.trim())
+      setPanel('review')
+    } catch {
+      setError('PDF konnte nicht gelesen werden. Bitte eine normale, nicht passwortgeschützte PDF-Datei verwenden.')
     } finally {
       setBusy(false)
     }
@@ -89,6 +119,11 @@ export default function NewRecipeChooserPage() {
     })
   }
 
+  const doReviewImport = () => {
+    const { ingredients, steps } = parseFreeText(reviewText)
+    goToForm({ ingredients, steps, description: '' })
+  }
+
   return (
     <div className="pb-10">
       <div className="flex items-center justify-between px-[18px] py-[18px]">
@@ -117,10 +152,15 @@ export default function NewRecipeChooserPage() {
       )}
 
       <ImportCard icon={<CameraIcon width={20} height={20} />} title="Foto scannen" onClick={() => photoInputRef.current?.click()}>
-        Foto von Kochbuch/handschriftlichem Rezept – Text wird direkt auf deinem Gerät erkannt.
+        Foto von Kochbuch/gedrucktem Rezept – Text wird direkt auf deinem Gerät erkannt. Du kannst den erkannten Text danach noch korrigieren.
       </ImportCard>
       <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && doPhotoImport(e.target.files[0])} />
-      {busy && progress > 0 && <div className="mx-[18px] mb-3 text-[11px] text-cream-soft">Texterkennung läuft… {progress}%</div>}
+
+      <ImportCard icon={<PdfIcon width={20} height={20} />} title="Aus PDF importieren" onClick={() => pdfInputRef.current?.click()}>
+        PDF-Datei mit einem Rezept einlesen – funktioniert bei PDFs mit echtem Text (z. B. von einer Webseite exportiert).
+      </ImportCard>
+      <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => e.target.files?.[0] && doPdfImport(e.target.files[0])} />
+      {busy && progress > 0 && <div className="mx-[18px] mb-3 text-[11px] text-cream-soft">Lese…{progress}%</div>}
 
       <ImportCard icon={<FileIcon width={20} height={20} />} title="Aus Datei importieren" onClick={() => fileInputRef.current?.click()}>
         JSON- oder CSV-Datei mit einem oder mehreren Rezepten auf einmal einlesen.
@@ -135,6 +175,21 @@ export default function NewRecipeChooserPage() {
           <TextInput value={socialUrl} onChange={(e) => setSocialUrl(e.target.value)} placeholder="Link zum Beitrag (optional)" className="mb-2.5" />
           <TextArea rows={5} value={socialText} onChange={(e) => setSocialText(e.target.value)} placeholder="Bildunterschrift/Text hier einfügen…" />
           <PrimaryButton className="mt-3 w-full" onClick={doSocialImport}>
+            Übernehmen
+          </PrimaryButton>
+        </div>
+      )}
+
+      {panel === 'review' && (
+        <div className="mx-[18px] mb-3 rounded-2xl border border-line bg-surface p-4 shadow-card-sm">
+          <div className="mb-2.5 text-[12px] font-bold text-cream">
+            {reviewSource === 'photo' ? 'Erkannter Text aus dem Foto' : 'Text aus der PDF'} – bitte kurz prüfen
+          </div>
+          <div className="mb-2.5 text-[11.5px] leading-relaxed text-cream-soft">
+            Erkennung ist nicht immer perfekt. Korrigiere hier offensichtliche Fehler (z. B. verdrehte Zahlen/Einheiten), bevor daraus Zutaten &amp; Schritte gebaut werden – im nächsten Formular kannst du danach ohnehin noch alles anpassen.
+          </div>
+          <TextArea rows={10} value={reviewText} onChange={(e) => setReviewText(e.target.value)} />
+          <PrimaryButton className="mt-3 w-full" onClick={doReviewImport}>
             Übernehmen
           </PrimaryButton>
         </div>
