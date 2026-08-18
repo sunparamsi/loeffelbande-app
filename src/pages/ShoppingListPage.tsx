@@ -3,6 +3,7 @@ import { repo } from '../data'
 import type { ShoppingListItem, Recipe } from '../db/types'
 import { PlusIcon, CheckIcon, TrashIcon } from '../icons'
 import { TextInput, PrimaryButton } from '../components/ui'
+import { addPurchasedItemToPantry } from '../lib/pantrySync'
 
 export default function ShoppingListPage() {
   const [items, setItems] = useState<ShoppingListItem[]>([])
@@ -24,7 +25,13 @@ export default function ShoppingListPage() {
   }, [])
 
   const toggle = async (item: ShoppingListItem) => {
-    await repo.saveShoppingItem({ ...item, checked: !item.checked })
+    const nextChecked = !item.checked
+    await repo.saveShoppingItem({ ...item, checked: nextChecked })
+    // Als "gekauft" markiert -> wandert automatisch in den Vorrat (gleicher
+    // Name + Einheit wird zusammengeführt/addiert). Beim Zurücksetzen wird
+    // nichts aus dem Vorrat entfernt, falls dort inzwischen manuell etwas
+    // angepasst wurde.
+    if (nextChecked) await addPurchasedItemToPantry(item)
     load()
   }
 

@@ -1,4 +1,5 @@
 import type { Ingredient, Recipe, RecipeStep } from '../db/types'
+import { UNIT_WORDS } from './units'
 
 function isoDurationToMinutes(iso?: string): number | undefined {
   if (!iso) return undefined
@@ -59,11 +60,20 @@ export async function importFromUrl(url: string): Promise<Partial<Recipe> | null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const n = node as any
 
-  const ingredients: Ingredient[] = (n.recipeIngredient ?? n.ingredients ?? []).map((line: string) => {
-    const m = String(line).match(/^([\d½¼¾⅓⅔.,/]+)\s*([a-zA-Zäöüß]*)\s+(.*)$/)
-    if (m) return { id: crypto.randomUUID(), quantity: Number(m[1].replace(',', '.')) || null, unit: m[2] || '', name: m[3] }
-    return { id: crypto.randomUUID(), quantity: null, unit: '', name: String(line) }
-  })
+  const rawIngredients: Ingredient[] = (n.recipeIngredient ?? n.ingredients ?? []).map((line: string) => parseIngredientLine(String(line)))
+
+  // Manche Seiten liefern kaputte/inkonsistente Rezept-Strukturdaten (das
+  // eingebettete JSON-LD stimmt nicht mit dem sichtbaren Text der Seite
+  // überein – z. B. wenn ein Rezept-Plugin für die Nährwertberechnung
+  // Mengen wie "250 g" pro Zutat einträgt statt der echten Zutatenzeile).
+  // Erkennbar daran, dass mehrere Zutaten exakt dieselbe Menge/Einheit
+  // haben und dabei kein Name übrig bleibt. In dem Fall ist die Zutatenliste
+  // wertlos – dann lieber leer lassen, als falsche Zeilen anzuzeigen.
+  const looksBroken =
+    rawIngredients.length > 2 &&
+    rawIngredients.every((i) => !i.name.trim()) &&
+    new Set(rawIngredients.map((i) => `${i.quantity}|${i.unit}`)).size === 1
+  const ingredients = looksBroken ? [] : rawIngredients
 
   let rawSteps: string[] = []
   if (Array.isArray(n.recipeInstructions)) {
@@ -90,4 +100,24 @@ export async function importFromUrl(url: string): Promise<Partial<Recipe> | null
     images: image ? [{ id: crypto.randomUUID(), dataUrl: String(image) }] : [],
     sourceUrl: url,
   }
+}
+
+/** Zerlegt eine Zutatenzeile in Menge/Einheit/Name. Das Wort nach der Zahl
+ * wird nur dann als Einheit behandelt, wenn es in UNIT_WORDS vorkommt –
+ * sonst gehört es zum Namen (verhindert z. B., dass bei "2 Zwiebeln"
+ * "Zwiebeln" fälschlich als Einheit erkannt und der Name leer wird). */
+function parseIngredientLine(line: string): Ingredient {
+  const m = line.match(/^([\d½¼¾⅓⅔.,/]+)\s*([a-zA-Zäöüß.]*)\s*(.*)$/)
+  if (m && UNIT_WORDS.includes(m[2].toLowerCase())) {
+    return { id: crypto.randomUUID(), quantity: Number(m[1].replace(',', '.')) || null, unit: m[2], name: m[3] }
+  }
+  if (m && m[2] && !m[3]) {
+    // Zahl gefolgt von genau einem Wort, das keine bekannte Einheit ist –
+    // das Wort gehört zum Namen (z. B. "2 Zwiebeln"), nicht als Einheit weglassen.
+    return { id: crypto.randomUUID(), quantity: Number(m[1].replace(',', '.')) || null, unit: '', name: m[2] }
+  }
+  if (m && m[1] && (m[2] || m[3])) {
+    return { id: crypto.randomUUID(), quantity: Number(m[1].replace(',', '.')) || null, unit: '', name: `${m[2]} ${m[3]}`.trim() }
+  }
+  return { id: crypto.randomUUID(), quantity: null, unit: '', name: line }
 }
