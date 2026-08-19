@@ -1,5 +1,5 @@
 import type { Ingredient, RecipeStep } from '../db/types'
-import { UNIT_WORDS, convertToMetric } from './units'
+import { UNIT_WORDS, convertToMetric, matchUnitWord } from './units'
 import { isJunkStepLine } from './stepClean'
 
 const INGREDIENTS_HEADER_RE = /^(ingredients?|zutaten)\s*:?$/i
@@ -47,8 +47,7 @@ export function parseFreeText(text: string): { title: string; ingredients: Ingre
     const ingredientZone = lines.slice(ingredientsHeaderIdx >= 0 ? ingredientsHeaderIdx + 1 : 0, methodHeaderIdx)
     const stepZone = lines.slice(methodHeaderIdx + 1).filter((l) => !SUB_HEADER_RE.test(l) && !isJunkStepLine(l))
 
-    const ingredients = ingredientZone
-      .filter((l) => !SUB_HEADER_RE.test(l))
+    const ingredients = reflowIngredientLines(ingredientZone.filter((l) => !SUB_HEADER_RE.test(l)))
       .map(parseIngredientLine)
       .filter((i) => i.name.trim().length > 0)
     const steps = reflowStepLines(stepZone).map((l) => ({ id: crypto.randomUUID(), text: l.replace(/^\d+[.)]\s*/, '') }))
@@ -112,6 +111,36 @@ function reflowStepLines(lines: string[]): string[] {
   return merged
 }
 
+/**
+ * Fügt Zutatenzeilen wieder zusammen, die beim Foto-/PDF-Scan mitten in
+ * einer Klammer umgebrochen wurden (z. B. "... in verschiedenen Formen
+ * (Ochsenherzen, Roma, Kirschtomaten," gefolgt von "usw.)" auf der
+ * nächsten Zeile). Ohne diese Zusammenführung würde "usw.)" als eigene,
+ * unsinnige Zutat gespeichert. Heuristik: Eine Zeile mit einer nicht
+ * geschlossenen öffnenden Klammer "verschluckt" die nachfolgende(n)
+ * Zeile(n), bis die Klammer wieder ausgeglichen ist.
+ */
+function reflowIngredientLines(lines: string[]): string[] {
+  const merged: string[] = []
+  let openParens = 0
+  for (const line of lines) {
+    if (openParens > 0 && merged.length > 0) {
+      merged[merged.length - 1] = `${merged[merged.length - 1]} ${line}`.trim()
+    } else {
+      merged.push(line)
+    }
+    openParens += countChar(line, '(') - countChar(line, ')')
+    if (openParens < 0) openParens = 0
+  }
+  return merged
+}
+
+function countChar(s: string, ch: string): number {
+  let count = 0
+  for (const c of s) if (c === ch) count++
+  return count
+}
+
 /** Grobe Prüfung, ob eine Zeile als Rezepttitel taugt: keine Abschnitts-
  * überschrift, keine Zutatenzeile (führende Zahl) und nicht zu lang. */
 function looksLikeTitle(line: string): boolean {
@@ -129,8 +158,9 @@ function looksLikeTitle(line: string): boolean {
  * ganz ohne führende Zahl (z. B. "Flaky sea salt") landen komplett im Namen. */
 function parseIngredientLine(line: string): Ingredient {
   const m = line.match(/^([\d½¼¾⅓⅔.,/]+)\s*([a-zA-Zäöüß.]*)\s*(.*)$/)
-  if (m && UNIT_WORDS.includes(m[2].toLowerCase())) {
-    const { quantity, unit } = convertToMetric(parseQty(m[1]), m[2])
+  const matchedUnit = m ? matchUnitWord(m[2]) : null
+  if (m && matchedUnit) {
+    const { quantity, unit } = convertToMetric(parseQty(m[1]), matchedUnit)
     return { id: crypto.randomUUID(), quantity, unit, name: m[3] }
   }
   if (m && m[2] && !m[3]) {

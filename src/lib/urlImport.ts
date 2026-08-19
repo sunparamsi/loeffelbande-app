@@ -1,5 +1,5 @@
 import type { Ingredient, Recipe, RecipeStep } from '../db/types'
-import { UNIT_WORDS, convertToMetric } from './units'
+import { convertToMetric, matchUnitWord } from './units'
 import { isJunkStepLine, stripInjectedContent } from './stepClean'
 
 function isoDurationToMinutes(iso?: string): number | undefined {
@@ -124,9 +124,10 @@ export async function importFromUrl(url: string): Promise<Partial<Recipe> | null
  * "Zwiebeln" fälschlich als Einheit erkannt und der Name leer wird). */
 function parseIngredientLine(line: string): Ingredient {
   const m = line.match(/^([\d½¼¾⅓⅔.,/]+)\s*([a-zA-Zäöüß.]*)\s*(.*)$/)
-  if (m && UNIT_WORDS.includes(m[2].toLowerCase())) {
+  const matchedUnit = m ? matchUnitWord(m[2]) : null
+  if (m && matchedUnit) {
     const qty = Number(m[1].replace(',', '.')) || null
-    const { quantity, unit } = convertToMetric(qty, m[2])
+    const { quantity, unit } = convertToMetric(qty, matchedUnit)
     return { id: crypto.randomUUID(), quantity, unit, name: m[3] }
   }
   if (m && m[2] && !m[3]) {

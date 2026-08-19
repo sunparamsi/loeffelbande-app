@@ -52,6 +52,27 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10
 }
 
+/** Erkennt eine Einheit robuster als ein reiner UNIT_WORDS-Abgleich, indem
+ * eine häufige OCR-/Foto-Scan-Verwechslung mitbehandelt wird: ein
+ * groß-"I" wird beim Scannen oft mit einem klein-"l" verwechselt (beide
+ * Zeichen sehen sich in vielen – insbesondere serifenlosen – Schriften zum
+ * Verwechseln ähnlich), sodass z. B. "lbs" als "Ibs" erkannt wird. Ohne diese
+ * Korrektur würde "Ibs" nicht als Einheit erkannt und stattdessen in den
+ * Zutatennamen rutschen. Liefert die kanonische (korrekt geschriebene)
+ * Einheit zurück (für convertToMetric()) oder null, wenn keine Einheit
+ * erkannt wurde. */
+export function matchUnitWord(token: string): string | null {
+  const raw = token.trim()
+  if (!raw) return null
+  const lower = raw.toLowerCase()
+  if (UNIT_WORDS.includes(lower)) return lower
+  if (raw[0] === 'I') {
+    const corrected = `l${lower.slice(1)}`
+    if (UNIT_WORDS.includes(corrected)) return corrected
+  }
+  return null
+}
+
 /** Rechnet Menge/Einheit einer Zutat auf metrische Einheiten um, falls die
  * Einheit eine bekannte nicht-metrische Gewichts- oder Volumeneinheit ist
  * (z. B. "1 lb" -> "453.6 g", "2 cups" -> "473.2 ml"). Unbekannte oder

@@ -15,7 +15,15 @@ const OTHER_BOILERPLATE_RE = /(link in bio|linkinbio|swipe up|double tap|follow 
 
 export function isBoilerplateLine(line: string): boolean {
   const hasCta = CTA_COMMENT_RE.test(line)
-  if (hasCta && (RECIPE_WORD_RE.test(line) || DM_WORD_RE.test(line))) return true
+  const hasRecipeWord = RECIPE_WORD_RE.test(line)
+  const hasDm = DM_WORD_RE.test(line)
+  if (hasCta && (hasRecipeWord || hasDm)) return true
+  // Manche (insb. maschinell übersetzte/OCR-verstümmelte) Bildunterschriften
+  // verlieren das Kommentar-Aufforderungsverb, behalten aber "DM" + ein
+  // Rezept-Wort bei (z. B. "DM. recette en DM. dir das Rezept als DM
+  // schicken."). Auch ohne explizites "kommentiere" ist das eindeutig
+  // Social-Media-Werbetext und kein echter Zubereitungsschritt.
+  if (hasDm && hasRecipeWord) return true
   return OTHER_BOILERPLATE_RE.test(line)
 }
 
