@@ -2,16 +2,14 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { repo } from '../data'
 import type { ShoppingListItem, Recipe } from '../db/types'
-import { PlusIcon, CheckIcon, TrashIcon } from '../icons'
+import { CheckIcon, TrashIcon } from '../icons'
 import { TextInput, PrimaryButton } from '../components/ui'
 import { addPurchasedItemToPantry } from '../lib/pantrySync'
-import GroceryPicker from '../components/GroceryPicker'
+import GroceryAddDock from '../components/GroceryAddDock'
 
 export default function ShoppingListPage() {
   const [items, setItems] = useState<ShoppingListItem[]>([])
   const [recipes, setRecipes] = useState<Recipe[]>([])
-  const [adding, setAdding] = useState(false)
-  const [manualMode, setManualMode] = useState(false)
   const [name, setName] = useState('')
   const [qty, setQty] = useState('')
   const [unit, setUnit] = useState('')
@@ -64,14 +62,13 @@ export default function ShoppingListPage() {
     await repo.saveShoppingItem(newItem)
   }
 
-  const add = async () => {
+  const add = async (close: () => void) => {
     if (!name.trim()) return
     await addItem({ name: name.trim(), quantity: qty ? Number(qty) : null, unit })
     setName('')
     setQty('')
     setUnit('')
-    setAdding(false)
-    setManualMode(false)
+    close()
   }
 
   const recipeTitle = (rid: string) => recipes.find((r) => r.id === rid)?.title
@@ -80,41 +77,12 @@ export default function ShoppingListPage() {
   const done = items.filter((i) => i.checked)
 
   return (
-    <div className="pb-8">
+    <div className="pb-[110px]">
       <div className="flex items-center justify-between px-[18px] pb-2.5 pt-5">
         <h1 className="text-[21px] font-extrabold text-cream">Einkaufsliste</h1>
-        <button
-          onClick={() => {
-            setAdding((a) => !a)
-            setManualMode(false)
-          }}
-          className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line bg-surface text-cream shadow-card-sm"
-        >
-          <PlusIcon />
-        </button>
       </div>
       {repo.mode === 'cloud' && (
         <div className="px-[18px] pb-3 text-[11.5px] text-cream-soft">Alle Haushaltsmitglieder sehen diese Liste live in Echtzeit.</div>
-      )}
-
-      {adding && !manualMode && (
-        <GroceryPicker recentKey="shopping" onAdd={addItem} onManualFallback={() => setManualMode(true)} />
-      )}
-
-      {adding && manualMode && (
-        <div className="mx-[18px] mb-4 rounded-2xl border border-line bg-surface p-4 shadow-card-sm">
-          <TextInput className="mb-2" value={name} onChange={(e) => setName(e.target.value)} placeholder="Was fehlt?" />
-          <div className="mb-3 grid grid-cols-2 gap-2">
-            <TextInput value={qty} onChange={(e) => setQty(e.target.value)} placeholder="Menge" type="number" />
-            <TextInput value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="Einheit" />
-          </div>
-          <PrimaryButton className="w-full" onClick={add}>
-            Hinzufügen
-          </PrimaryButton>
-          <button onClick={() => setManualMode(false)} className="mt-2 w-full text-center text-[11.5px] font-semibold text-cream-soft underline decoration-dotted">
-            Zurück zur Schnellauswahl
-          </button>
-        </div>
       )}
 
       {items.length === 0 && <div className="mx-[18px] rounded-2xl border border-dashed border-line p-8 text-center text-[12.5px] text-cream-soft">Einkaufsliste ist leer.</div>}
@@ -130,6 +98,23 @@ export default function ShoppingListPage() {
           <Row key={item.id} item={item} recipeTitle={recipeTitle} onToggle={toggle} onRemove={remove} />
         ))}
       </AnimatePresence>
+
+      <GroceryAddDock
+        selectedNames={new Set(items.map((i) => i.name.toLowerCase()))}
+        onAdd={addItem}
+        renderManual={(close) => (
+          <div>
+            <TextInput className="mb-2" value={name} onChange={(e) => setName(e.target.value)} placeholder="Was fehlt?" />
+            <div className="mb-3 grid grid-cols-2 gap-2">
+              <TextInput value={qty} onChange={(e) => setQty(e.target.value)} placeholder="Menge" type="number" />
+              <TextInput value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="Einheit" />
+            </div>
+            <PrimaryButton className="w-full" onClick={() => add(close)}>
+              Hinzufügen
+            </PrimaryButton>
+          </div>
+        )}
+      />
     </div>
   )
 }

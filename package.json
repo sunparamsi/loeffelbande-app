@@ -19,6 +19,7 @@
     "react-dom": "^19.2.8",
     "react-easy-crop": "^6.2.3",
     "react-router-dom": "^7.18.2",
+    "roughjs": "^4.6.6",
     "tailwind-merge": "^3.6.0",
     "tesseract.js": "^7.0.0",
     "uuid": "^14.0.1",

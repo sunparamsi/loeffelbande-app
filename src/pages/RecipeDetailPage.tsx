@@ -15,6 +15,8 @@ import {
   LinkIcon,
   ClockIcon,
   LevelIcon,
+  PlusIcon,
+  CheckIcon,
 } from '../icons'
 import type { Member } from '../data/repo'
 
@@ -28,10 +30,15 @@ export default function RecipeDetailPage() {
   const [pingTo, setPingTo] = useState<string | null>(null)
   const [pingNote, setPingNote] = useState('')
   const [status, setStatus] = useState<string | null>(null)
+  // Namen (klein geschrieben), die bereits auf der Einkaufsliste stehen –
+  // damit pro Zutat direkt sichtbar ist, ob sie schon hinzugefügt wurde,
+  // statt das bei jedem Tap neu aus der DB nachzuschlagen.
+  const [shoppingNames, setShoppingNames] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (!id) return
     repo.getRecipe(id).then((r) => setRecipe(r ?? null))
+    repo.listShoppingList().then((items) => setShoppingNames(new Set(items.map((i) => i.name.toLowerCase()))))
   }, [id])
 
   if (!recipe) {
@@ -51,6 +58,25 @@ export default function RecipeDetailPage() {
       else next.add(iid)
       return next
     })
+  }
+
+  // Einzelne Zutat mit ihrer Menge/Einheit zur Einkaufsliste hinzufügen –
+  // Ergänzung zum bestehenden "alles auf einmal"-Button weiter unten.
+  const addIngredientToShoppingList = async (ing: Recipe['ingredients'][number]) => {
+    if (!recipe) return
+    const key = ing.name.toLowerCase()
+    if (shoppingNames.has(key)) return
+    setShoppingNames((prev) => new Set(prev).add(key))
+    await repo.saveShoppingItem({
+      id: crypto.randomUUID(),
+      name: ing.name,
+      quantity: ing.quantity,
+      unit: ing.unit,
+      checked: false,
+      fromRecipeIds: [recipe.id],
+      addedAt: Date.now(),
+    })
+    setStatus(`„${ing.name}" zur Einkaufsliste hinzugefügt.`)
   }
 
   const openPing = async () => {
@@ -163,21 +189,30 @@ export default function RecipeDetailPage() {
         </div>
         {recipe.ingredients.map((ing) => {
           const isChecked = checked.has(ing.id)
+          const onList = shoppingNames.has(ing.name.toLowerCase())
           return (
-            <button
-              key={ing.id}
-              onClick={() => toggleIngredient(ing.id)}
-              className="flex w-full items-center gap-3 py-2 text-left text-[13.5px] text-cream"
-            >
-              <span className={`mx-[3px] h-[7px] w-[7px] flex-shrink-0 rounded-full ${isChecked ? 'bg-sage' : 'bg-cream-soft/50'}`} />
-              <span className="min-w-[58px] font-semibold text-cream-soft" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {ing.quantity ? `${ing.quantity} ${ing.unit}` : ing.unit}
-              </span>
-              <span className={isChecked ? 'text-cream-soft line-through' : ''}>
-                {ing.name}
-                {ing.note && <span className="text-cream-soft"> ({ing.note})</span>}
-              </span>
-            </button>
+            <div key={ing.id} className="flex w-full items-center gap-3 py-2 text-left text-[13.5px] text-cream">
+              <button onClick={() => toggleIngredient(ing.id)} className="flex min-w-0 flex-1 items-center gap-3">
+                <span className={`mx-[3px] h-[7px] w-[7px] flex-shrink-0 rounded-full ${isChecked ? 'bg-sage' : 'bg-cream-soft/50'}`} />
+                <span className="min-w-[58px] flex-shrink-0 font-semibold text-cream-soft" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {ing.quantity ? `${ing.quantity} ${ing.unit}` : ing.unit}
+                </span>
+                <span className={`min-w-0 truncate ${isChecked ? 'text-cream-soft line-through' : ''}`}>
+                  {ing.name}
+                  {ing.note && <span className="text-cream-soft"> ({ing.note})</span>}
+                </span>
+              </button>
+              <button
+                onClick={() => addIngredientToShoppingList(ing)}
+                disabled={onList}
+                aria-label={onList ? `${ing.name} ist bereits auf der Einkaufsliste` : `${ing.name} zur Einkaufsliste hinzufügen`}
+                className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border ${
+                  onList ? 'border-sage bg-sage text-bg' : 'border-line text-cream-soft'
+                }`}
+              >
+                {onList ? <CheckIcon width={11} height={11} /> : <PlusIcon width={12} height={12} />}
+              </button>
+            </div>
           )
         })}
         {recipe.ingredients.length === 0 && <div className="text-[12.5px] text-cream-soft">Keine Zutaten hinterlegt.</div>}
@@ -229,6 +264,7 @@ export default function RecipeDetailPage() {
             onClick={async () => {
               const items = await repo.listShoppingList()
               const existingNames = new Set(items.map((i) => i.name.toLowerCase()))
+              const added: string[] = []
               for (const ing of recipe.ingredients) {
                 if (existingNames.has(ing.name.toLowerCase())) continue
                 await repo.saveShoppingItem({
@@ -240,7 +276,9 @@ export default function RecipeDetailPage() {
                   fromRecipeIds: [recipe.id],
                   addedAt: Date.now(),
                 })
+                added.push(ing.name.toLowerCase())
               }
+              setShoppingNames((prev) => new Set([...prev, ...added]))
               setStatus('Zutaten zur Einkaufsliste hinzugefügt.')
             }}
             className="mt-6 w-full rounded-full border-[1.5px] border-dashed border-rust py-3 text-center text-[12.5px] font-bold text-rust"
