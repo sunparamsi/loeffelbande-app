@@ -15,7 +15,6 @@ import {
   LinkIcon,
   ClockIcon,
   LevelIcon,
-  LeafIcon,
 } from '../icons'
 import type { Member } from '../data/repo'
 
@@ -147,8 +146,7 @@ export default function RecipeDetailPage() {
         {recipe.tags.length > 0 && (
           <div className="mb-1.5 flex flex-wrap gap-1.5">
             {recipe.tags.map((t) => (
-              <div key={t} className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-cream-soft">
-                <LeafIcon width={12} height={12} className="text-sage" />
+              <div key={t} className="rounded-full border border-line bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-cream-soft">
                 {t}
               </div>
             ))}

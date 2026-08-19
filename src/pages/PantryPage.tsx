@@ -3,6 +3,7 @@ import { repo } from '../data'
 import type { PantryItem } from '../db/types'
 import { PlusIcon, SearchIcon, TrashIcon } from '../icons'
 import { TextInput, PrimaryButton } from '../components/ui'
+import GroceryPicker from '../components/GroceryPicker'
 
 function daysUntil(dateStr: string): number {
   const d = new Date(dateStr)
@@ -16,12 +17,25 @@ export default function PantryPage() {
   const [items, setItems] = useState<PantryItem[]>([])
   const [query, setQuery] = useState('')
   const [adding, setAdding] = useState(false)
+  const [manualMode, setManualMode] = useState(false)
   const [form, setForm] = useState({ name: '', quantity: '', unit: '', category: '', expiryDate: '' })
 
   const load = () => repo.listPantry().then(setItems)
   useEffect(() => {
     load()
   }, [])
+
+  const addQuick = async (item: { name: string; quantity: number | null; unit: string; category?: string }) => {
+    await repo.savePantryItem({
+      id: crypto.randomUUID(),
+      name: item.name,
+      quantity: item.quantity,
+      unit: item.unit,
+      category: item.category || 'Sonstiges',
+      updatedAt: Date.now(),
+    })
+    load()
+  }
 
   const filtered = items.filter((i) => i.name.toLowerCase().includes(query.toLowerCase()))
   const groups = useMemo(() => {
@@ -47,6 +61,7 @@ export default function PantryPage() {
     })
     setForm({ name: '', quantity: '', unit: '', category: '', expiryDate: '' })
     setAdding(false)
+    setManualMode(false)
     load()
   }
 
@@ -59,12 +74,20 @@ export default function PantryPage() {
     <div className="pb-8">
       <div className="flex items-center justify-between px-[18px] pb-2.5 pt-5">
         <h1 className="text-[21px] font-extrabold text-cream">Vorrat</h1>
-        <button onClick={() => setAdding((a) => !a)} className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line bg-surface text-cream shadow-card-sm">
+        <button
+          onClick={() => {
+            setAdding((a) => !a)
+            setManualMode(false)
+          }}
+          className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line bg-surface text-cream shadow-card-sm"
+        >
           <PlusIcon />
         </button>
       </div>
 
-      {adding && (
+      {adding && !manualMode && <GroceryPicker recentKey="pantry" onAdd={addQuick} onManualFallback={() => setManualMode(true)} />}
+
+      {adding && manualMode && (
         <div className="mx-[18px] mb-4 rounded-2xl border border-line bg-surface p-4 shadow-card-sm">
           <TextInput className="mb-2" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Zutat (z. B. Parmesan)" />
           <div className="mb-2 grid grid-cols-2 gap-2">
@@ -78,6 +101,9 @@ export default function PantryPage() {
           <PrimaryButton className="w-full" onClick={save}>
             Hinzufügen
           </PrimaryButton>
+          <button onClick={() => setManualMode(false)} className="mt-2 w-full text-center text-[11.5px] font-semibold text-cream-soft underline decoration-dotted">
+            Zurück zur Schnellauswahl
+          </button>
         </div>
       )}
 

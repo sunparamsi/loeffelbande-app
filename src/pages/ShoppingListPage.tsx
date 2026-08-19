@@ -5,11 +5,13 @@ import type { ShoppingListItem, Recipe } from '../db/types'
 import { PlusIcon, CheckIcon, TrashIcon } from '../icons'
 import { TextInput, PrimaryButton } from '../components/ui'
 import { addPurchasedItemToPantry } from '../lib/pantrySync'
+import GroceryPicker from '../components/GroceryPicker'
 
 export default function ShoppingListPage() {
   const [items, setItems] = useState<ShoppingListItem[]>([])
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [adding, setAdding] = useState(false)
+  const [manualMode, setManualMode] = useState(false)
   const [name, setName] = useState('')
   const [qty, setQty] = useState('')
   const [unit, setUnit] = useState('')
@@ -48,23 +50,28 @@ export default function ShoppingListPage() {
     await repo.deleteShoppingItem(id)
   }
 
-  const add = async () => {
-    if (!name.trim()) return
+  const addItem = async (item: { name: string; quantity: number | null; unit: string }) => {
     const newItem: ShoppingListItem = {
       id: crypto.randomUUID(),
-      name: name.trim(),
-      quantity: qty ? Number(qty) : null,
-      unit,
+      name: item.name,
+      quantity: item.quantity,
+      unit: item.unit,
       checked: false,
       fromRecipeIds: [],
       addedAt: Date.now(),
     }
     setItems((prev) => [...prev, newItem])
+    await repo.saveShoppingItem(newItem)
+  }
+
+  const add = async () => {
+    if (!name.trim()) return
+    await addItem({ name: name.trim(), quantity: qty ? Number(qty) : null, unit })
     setName('')
     setQty('')
     setUnit('')
     setAdding(false)
-    await repo.saveShoppingItem(newItem)
+    setManualMode(false)
   }
 
   const recipeTitle = (rid: string) => recipes.find((r) => r.id === rid)?.title
@@ -76,7 +83,13 @@ export default function ShoppingListPage() {
     <div className="pb-8">
       <div className="flex items-center justify-between px-[18px] pb-2.5 pt-5">
         <h1 className="text-[21px] font-extrabold text-cream">Einkaufsliste</h1>
-        <button onClick={() => setAdding((a) => !a)} className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line bg-surface text-cream shadow-card-sm">
+        <button
+          onClick={() => {
+            setAdding((a) => !a)
+            setManualMode(false)
+          }}
+          className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line bg-surface text-cream shadow-card-sm"
+        >
           <PlusIcon />
         </button>
       </div>
@@ -84,7 +97,11 @@ export default function ShoppingListPage() {
         <div className="px-[18px] pb-3 text-[11.5px] text-cream-soft">Alle Haushaltsmitglieder sehen diese Liste live in Echtzeit.</div>
       )}
 
-      {adding && (
+      {adding && !manualMode && (
+        <GroceryPicker recentKey="shopping" onAdd={addItem} onManualFallback={() => setManualMode(true)} />
+      )}
+
+      {adding && manualMode && (
         <div className="mx-[18px] mb-4 rounded-2xl border border-line bg-surface p-4 shadow-card-sm">
           <TextInput className="mb-2" value={name} onChange={(e) => setName(e.target.value)} placeholder="Was fehlt?" />
           <div className="mb-3 grid grid-cols-2 gap-2">
@@ -94,6 +111,9 @@ export default function ShoppingListPage() {
           <PrimaryButton className="w-full" onClick={add}>
             Hinzufügen
           </PrimaryButton>
+          <button onClick={() => setManualMode(false)} className="mt-2 w-full text-center text-[11.5px] font-semibold text-cream-soft underline decoration-dotted">
+            Zurück zur Schnellauswahl
+          </button>
         </div>
       )}
 

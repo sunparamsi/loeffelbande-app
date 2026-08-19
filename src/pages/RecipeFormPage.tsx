@@ -49,7 +49,15 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
         if (r) setRecipe(r)
       })
     } else if (mode === 'create' && location.state?.prefill) {
-      setRecipe((r) => ({ ...r, ...location.state!.prefill }))
+      const base: Recipe = { ...emptyRecipe(), ...location.state!.prefill }
+      setRecipe(base)
+      // Importierte Rezepte (Foto/PDF/Webseite/Social) sind oft englisch –
+      // automatisch ins Deutsche übersetzen, statt darauf zu warten, dass
+      // der Nutzer manuell auf "Ins Deutsche übersetzen" tippt. Der Button
+      // bleibt trotzdem sichtbar (z. B. um es nach eigenen Änderungen erneut
+      // anzustoßen oder falls die Übersetzung fehlschlägt).
+      const hasImportedContent = base.ingredients.length > 0 || base.steps.length > 0 || !!base.title.trim()
+      if (hasImportedContent) translateRecipe(base)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, id])
@@ -103,20 +111,31 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
     update('links', recipe.links.map((l) => (l.id === lid ? { ...l, ...patch } : l)))
   const removeLink = (lid: string) => update('links', recipe.links.filter((l) => l.id !== lid))
 
-  const doTranslate = async () => {
+  // Nimmt einen Rezept-Snapshot (Titel, Beschreibung, Zutatennamen,
+  // Zubereitungsschritte – inkl. Kochanweisung) und übersetzt alle
+  // nicht-leeren Felder gemeinsam ins Deutsche. Wird sowohl automatisch
+  // direkt nach einem Import aufgerufen als auch über den manuellen Button.
+  const translateRecipe = async (base: Recipe) => {
     setTranslating(true)
     setTranslateNote(null)
     try {
       // Reihenfolge merken: Titel, Beschreibung, dann alle Zutatennamen, dann
-      // alle Schritte – so lassen sich die Übersetzungen hinterher wieder an
-      // der gleichen Position einsetzen.
-      const texts: string[] = [recipe.title, recipe.description ?? '', ...recipe.ingredients.map((i) => i.name), ...recipe.steps.map((s) => s.text)]
+      // alle Schritte (Kochanweisung) – so lassen sich die Übersetzungen
+      // hinterher wieder an der gleichen Position einsetzen.
+      const texts: string[] = [base.title, base.description ?? '', ...base.ingredients.map((i) => i.name), ...base.steps.map((s) => s.text)]
       const nonEmptyIdx = texts.map((t, i) => (t.trim() ? i : -1)).filter((i) => i >= 0)
       const toSend = nonEmptyIdx.map((i) => texts[i])
       if (toSend.length === 0) return
 
-      const { translations, detectedLang } = await translateTexts(toSend, 'DE')
-      if (detectedLang && detectedLang.toUpperCase() === 'DE') {
+      const { translations, detectedLangs } = await translateTexts(toSend, 'DE')
+      // Nur überspringen, wenn WIRKLICH jeder gesendete Text schon als
+      // Deutsch erkannt wurde. Ein importiertes Rezept ist oft sprachlich
+      // gemischt (z. B. Titel bereits eingedeutscht, Zutaten/Schritte aber
+      // noch englisch) – ein einzelner deutscher Titel darf die Übersetzung
+      // von Zutaten und Kochanweisung nicht verhindern (das war der Grund,
+      // warum bisher nach dem Import oft nur der Titel übersetzt wurde).
+      const allAlreadyGerman = detectedLangs.length > 0 && detectedLangs.every((l) => l?.toUpperCase() === 'DE')
+      if (allAlreadyGerman) {
         setTranslateNote('Rezept scheint schon auf Deutsch zu sein – nichts geändert.')
         return
       }
@@ -126,8 +145,8 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
         result[origIdx] = translations[sendIdx] ?? texts[origIdx]
       })
       const [newTitle, newDescription, ...rest] = result
-      const newIngredients = recipe.ingredients.map((ing, i) => ({ ...ing, name: rest[i] }))
-      const newSteps = recipe.steps.map((s, i) => ({ ...s, text: rest[recipe.ingredients.length + i] }))
+      const newIngredients = base.ingredients.map((ing, i) => ({ ...ing, name: rest[i] }))
+      const newSteps = base.steps.map((s, i) => ({ ...s, text: rest[base.ingredients.length + i] }))
 
       setRecipe((r) => ({ ...r, title: newTitle, description: newDescription, ingredients: newIngredients, steps: newSteps }))
       setTranslateNote('Ins Deutsche übersetzt – bitte kurz gegenprüfen.')
@@ -162,7 +181,7 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
       {mode === 'create' && (
         <div className="px-[18px] pt-2.5">
           <button
-            onClick={doTranslate}
+            onClick={() => translateRecipe(recipe)}
             disabled={translating}
             className="rounded-full border border-dashed border-rust px-3.5 py-1.5 text-[11px] font-bold text-rust disabled:opacity-50"
           >

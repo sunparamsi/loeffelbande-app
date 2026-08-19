@@ -3,6 +3,14 @@
  * werden – CORS ist dort bewusst gesperrt, siehe netlify/functions/translate.js). */
 export interface TranslateResult {
   translations: string[]
+  /** Erkannte Quellsprache pro übersetztem Text (gleiche Reihenfolge/Länge
+   * wie `translations`) – ein Rezept ist oft sprachlich gemischt (z. B.
+   * Titel schon Deutsch, Zutaten noch Englisch), daher pro Text statt nur
+   * einmal global. */
+  detectedLangs: (string | null)[]
+  /** Erkannte Quellsprache des ERSTEN Texts – nur als Kurzform für Aufrufer,
+   * die nur einen einzigen Text übersetzen. Bei mehreren Texten bitte
+   * `detectedLangs` verwenden. */
   detectedLang: string | null
 }
 

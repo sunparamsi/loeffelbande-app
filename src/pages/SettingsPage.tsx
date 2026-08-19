@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { repo } from '../data'
 import { useAuth } from '../lib/useAuth'
@@ -22,7 +22,7 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
 
 export default function SettingsPage() {
   const navigate = useNavigate()
-  const { authState, refresh } = useAuth()
+  const { authState, refresh, refreshSilently } = useAuth()
   const { categories, refresh: refreshCategories } = useCategories()
   const [logo, setLogo] = useState<string | null>(null)
   const [avatar, setAvatar] = useState<string | null>(null)
@@ -35,6 +35,7 @@ export default function SettingsPage() {
   const [nameError, setNameError] = useState<string | null>(null)
   const [savingName, setSavingName] = useState(false)
   const [avatarToCrop, setAvatarToCrop] = useState<string | null>(null)
+  const scrollBeforeEditRef = useRef<number | null>(null)
 
   const avatarKey = memberAvatarKey(authState?.household?.id, authState?.currentMemberName)
 
@@ -107,10 +108,29 @@ export default function SettingsPage() {
     setWakeLockPref(next)
   }
 
+  // Das Eingabefeld beim Bearbeiten hat autoFocus, wodurch der Browser die
+  // Ansicht zum Feld hin scrollt ("springt die Sicht ran") – Scroll-Position
+  // davor merken, damit wir nach dem Speichern/Abbrechen wieder genau dorthin
+  // zurückspringen können, statt dass die Ansicht oben "hängen bleibt".
   const startEditName = () => {
+    scrollBeforeEditRef.current = window.scrollY
     setNameDraft(authState?.currentMemberName ?? '')
     setNameError(null)
     setEditingName(true)
+  }
+
+  const restoreScrollAfterEdit = () => {
+    const y = scrollBeforeEditRef.current
+    if (y == null) return
+    scrollBeforeEditRef.current = null
+    // Erst im nächsten Frame zurückspringen, damit das DOM schon auf die
+    // (kürzere) Nicht-Editier-Ansicht umgestellt ist.
+    requestAnimationFrame(() => window.scrollTo(0, y))
+  }
+
+  const cancelEditName = () => {
+    setEditingName(false)
+    restoreScrollAfterEdit()
   }
 
   const saveName = async () => {
@@ -124,7 +144,10 @@ export default function SettingsPage() {
       const res = await repo.updateDisplayName(nameDraft.trim())
       if (res.ok) {
         setEditingName(false)
-        await refresh()
+        // Still (ohne Lade-/Splash-Zustand) aktualisieren, damit die Seite
+        // nicht komplett neu mountet und die Ansicht nach oben springt.
+        await refreshSilently()
+        restoreScrollAfterEdit()
       } else {
         setNameError(res.error)
       }
@@ -192,7 +215,7 @@ export default function SettingsPage() {
             >
               {savingName ? 'Speichere…' : 'Speichern'}
             </button>
-            <button onClick={() => setEditingName(false)} className="rounded-full border border-line px-3.5 py-1.5 text-[11px] font-bold text-cream-soft">
+            <button onClick={cancelEditName} className="rounded-full border border-line px-3.5 py-1.5 text-[11px] font-bold text-cream-soft">
               Abbrechen
             </button>
           </div>

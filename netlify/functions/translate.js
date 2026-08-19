@@ -67,6 +67,12 @@ exports.handler = async function (event) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         translations: data.translations.map((t) => t.text),
+        // Pro Text erkannte Quellsprache (nicht nur die des ersten Texts) –
+        // wichtig, weil ein Rezept oft gemischt ist (z. B. Titel schon auf
+        // Deutsch, Zutaten/Schritte noch Englisch). Mit nur EINEM globalen
+        // Wert (z. B. vom Titel) würde sonst fälschlich die ganze Übersetzung
+        // übersprungen, obwohl der Rest noch übersetzt werden müsste.
+        detectedLangs: data.translations.map((t) => t.detected_source_language ?? null),
         detectedLang: data.translations[0] ? data.translations[0].detected_source_language : null,
       }),
     }

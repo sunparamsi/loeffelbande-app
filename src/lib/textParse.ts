@@ -1,5 +1,6 @@
 import type { Ingredient, RecipeStep } from '../db/types'
 import { UNIT_WORDS, convertToMetric } from './units'
+import { isJunkStepLine } from './stepClean'
 
 const INGREDIENTS_HEADER_RE = /^(ingredients?|zutaten)\s*:?$/i
 const METHOD_HEADER_RE = /^(method|instructions?|directions?|zubereitung|preparation|steps?)\s*:?$/i
@@ -8,43 +9,6 @@ const METHOD_HEADER_RE = /^(method|instructions?|directions?|zubereitung|prepara
 // gefasst (kurz, nur Buchstaben), damit ein echter Schritt wie "For the
 // last 5 minutes, stir occasionally." nicht versehentlich verschluckt wird.
 const SUB_HEADER_RE = /^(for the [a-zäöüß\s]{2,25}|für (den|die|das) [a-zäöüß\s]{2,25}|to finish|garnish(es)?|topping[s]?|serving suggestion|zum servieren|zum garnieren|for garnishing|to serve)\s*:?$/i
-
-// Social-Media-Bildunterschriften enthalten oft Interaktions-Aufrufe statt
-// echter Rezeptschritte ("Schreibe 'Rezept' in die Kommentare, dann schicke
-// ich es dir per Direktnachricht.", "Commente «recette» et je t'enverrai la
-// recette en DM."). Erkennung bewusst mehrsprachig (DE/EN/FR) über die
-// Kombination "Kommentar-Aufforderung" + "Rezept-Wort" bzw. "DM/Nachricht",
-// damit ein echter Zubereitungsschritt wie "Kommentiere die Konsistenz kurz"
-// nicht fälschlich als Boilerplate erkannt wird (dafür müsste er zusätzlich
-// das Wort "Rezept"/"recipe"/"recette" o. ä. enthalten).
-const CTA_COMMENT_RE = /(kommentier|kommentar|comment|commente|coment)/i
-const RECIPE_WORD_RE = /(rezept|recipe|recette|ricetta|receta)/i
-const DM_WORD_RE = /(direktnachricht|per\s*dm\b|\bdm\b|message\s*priv|nachricht\s*schick)/i
-const OTHER_BOILERPLATE_RE = /(link in bio|linkinbio|swipe up|double tap|follow (us|me|@)|folge (uns|mir) für)/i
-
-function isBoilerplateLine(line: string): boolean {
-  const hasCta = CTA_COMMENT_RE.test(line)
-  if (hasCta && (RECIPE_WORD_RE.test(line) || DM_WORD_RE.test(line))) return true
-  return OTHER_BOILERPLATE_RE.test(line)
-}
-
-/** Erkennt Zeilen, die eigentlich eine (fremde) Zutatenliste sind, aber in
- * den Zubereitungsschritten aufgetaucht sind (z. B. wenn eine Instagram-
- * Bildunterschrift ein zweites, komplett anderes Rezept verlinkt/erwähnt und
- * dessen Zutaten mit im Text stehen). Heuristik: mehrere "Zahl + Einheit"-
- * Treffer in derselben Zeile sind in einem echten Zubereitungssatz
- * unüblich – ein normaler Schritt erwähnt selten mehr als zwei Zutaten mit
- * Menge in einem Satz. */
-const UNIT_HIT_RE = new RegExp(`\\b\\d+[.,]?\\d*\\s*(${UNIT_WORDS.map(escapeRegExp).join('|')})\\b`, 'gi')
-
-function looksLikeForeignIngredientDump(line: string): boolean {
-  const matches = line.match(UNIT_HIT_RE)
-  return !!matches && matches.length >= 3
-}
-
-function isJunkStepLine(line: string): boolean {
-  return isBoilerplateLine(line) || looksLikeForeignIngredientDump(line)
-}
 
 /**
  * Heuristische Vorstrukturierung von eingefügtem Freitext (Social-Media-

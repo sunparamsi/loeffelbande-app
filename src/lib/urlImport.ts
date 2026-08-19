@@ -1,5 +1,6 @@
 import type { Ingredient, Recipe, RecipeStep } from '../db/types'
 import { UNIT_WORDS, convertToMetric } from './units'
+import { isJunkStepLine, stripInjectedContent } from './stepClean'
 
 function isoDurationToMinutes(iso?: string): number | undefined {
   if (!iso) return undefined
@@ -88,7 +89,17 @@ export async function importFromUrl(url: string): Promise<Partial<Recipe> | null
   } else if (typeof n.recipeInstructions === 'string') {
     rawSteps = n.recipeInstructions.split(/\n+/)
   }
-  const steps: RecipeStep[] = rawSteps.filter(Boolean).map((text) => ({ id: crypto.randomUUID(), text }))
+  // Manche Quell-Webseiten liefern fehlerhafte/inkonsistente structured data,
+  // bei der sich mehrere Rezepte vermischen (z. B. ein Beilagen-Rezept mitten
+  // in einem Zubereitungsschritt des Hauptrezepts) oder bei der Social-Media-
+  // Werbetext ("Kommentiere 'Rezept', ich schicke es dir per DM") als Schritt
+  // durchrutscht. Pro Schritt bereinigen, komplett auf solchen Fremdinhalt
+  // reduzierte Schritte danach ganz weglassen.
+  const steps: RecipeStep[] = rawSteps
+    .filter(Boolean)
+    .map((text) => (isJunkStepLine(text) ? '' : stripInjectedContent(text)))
+    .filter((text) => text.trim().length > 0)
+    .map((text) => ({ id: crypto.randomUUID(), text }))
 
   const image = Array.isArray(n.image) ? n.image[0] : typeof n.image === 'object' ? n.image?.url : n.image
 
