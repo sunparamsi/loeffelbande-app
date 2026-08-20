@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { twMerge } from 'tailwind-merge'
 
@@ -124,13 +125,27 @@ export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   )
 }
 
+/** Textfeld, das seine Höhe automatisch an den Inhalt anpasst (statt einer
+ * festen Zeilenzahl mit interner Scrollbar), damit z. B. importierter/
+ * eingefügter Text immer komplett sichtbar ist, ohne im Feld scrollen zu
+ * müssen. `rows` wirkt weiterhin als Mindesthöhe beim ersten Rendern. */
 export function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const { className = '', ...rest } = props
+  const ref = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [props.value])
+
   return (
     <textarea
+      ref={ref}
       {...rest}
       className={twMerge(
-        'w-full resize-none rounded-xl border border-line bg-surface px-3.5 py-3 text-sm text-cream placeholder:text-cream-soft/70 focus:outline-none focus:border-rust',
+        'w-full resize-none overflow-hidden rounded-xl border border-line bg-surface px-3.5 py-3 text-sm text-cream placeholder:text-cream-soft/70 focus:outline-none focus:border-rust',
         className,
       )}
     />

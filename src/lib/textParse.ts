@@ -3,8 +3,12 @@ import { UNIT_WORDS } from './units'
 import { isJunkStepLine } from './stepClean'
 import { parseIngredientLine } from './ingredientParse'
 
-const INGREDIENTS_HEADER_RE = /^(ingredients?|zutaten)\s*:?$/i
-const METHOD_HEADER_RE = /^(method|instructions?|directions?|zubereitung|preparation|steps?)\s*:?$/i
+// Nur am Zeilenanfang geprüft (\b statt $), damit auch Überschriften mit
+// Zusatzinfo auf derselben Zeile erkannt werden (z. B. "Zutaten (4 Portionen)"
+// oder "Zutaten (1 Menschen) 22" – Letzteres wie es z. B. beim OCR-Scan einer
+// Foto-PDF entsteht, wenn ein Personen-Icon daneben als Zahl mitgelesen wird).
+const INGREDIENTS_HEADER_RE = /^(ingredients?|zutaten(liste)?)\b/i
+const METHOD_HEADER_RE = /^(method|instructions?|directions?|zubereitung|anweisung(en)?|schritte|preparation|steps?)\b/i
 // Kurze Zwischenüberschriften innerhalb der Zutaten-/Zubereitungsliste
 // (z. B. "For the pastry", "To finish", "Zum Garnieren") – bewusst eng
 // gefasst (kurz, nur Buchstaben), damit ein echter Schritt wie "For the
@@ -48,7 +52,7 @@ export function parseFreeText(text: string): { title: string; ingredients: Ingre
     const ingredientZone = lines.slice(ingredientsHeaderIdx >= 0 ? ingredientsHeaderIdx + 1 : 0, methodHeaderIdx)
     const stepZone = lines.slice(methodHeaderIdx + 1).filter((l) => !SUB_HEADER_RE.test(l) && !isJunkStepLine(l))
 
-    const ingredients = reflowIngredientLines(ingredientZone.filter((l) => !SUB_HEADER_RE.test(l)))
+    const ingredients = splitMergedIngredientLines(reflowIngredientLines(ingredientZone.filter((l) => !SUB_HEADER_RE.test(l))))
       .map(parseIngredientLine)
       .filter((i) => i.name.trim().length > 0)
     const steps = reflowStepLines(stepZone).map((l) => ({ id: crypto.randomUUID(), text: l.replace(/^\d+[.)]\s*/, '') }))
@@ -58,7 +62,7 @@ export function parseFreeText(text: string): { title: string; ingredients: Ingre
 
   // Kein klarer Zutaten-/Zubereitungs-Abschnitt gefunden (z. B. kurze
   // Social-Media-Bildunterschrift) – Fallback: zeilenweise entscheiden.
-  const ingredients: Ingredient[] = []
+  const ingredientLines: string[] = []
   const rawStepLines: string[] = []
 
   for (const line of lines) {
@@ -73,15 +77,18 @@ export function parseFreeText(text: string): { title: string; ingredients: Ingre
     if (looksLikeStepNumber || isLong) {
       rawStepLines.push(line)
     } else if (startsWithNumber || hasUnit) {
-      ingredients.push(parseIngredientLine(line))
+      ingredientLines.push(line)
     } else if (line.length > 0) {
       rawStepLines.push(line)
     }
   }
 
+  const ingredients = splitMergedIngredientLines(ingredientLines)
+    .map(parseIngredientLine)
+    .filter((i) => i.name.trim().length > 0)
   const steps = reflowStepLines(rawStepLines).map((l) => ({ id: crypto.randomUUID(), text: l.replace(/^\d+[.)]\s*/, '') }))
 
-  return { title, ingredients: ingredients.filter((i) => i.name.trim().length > 0), steps }
+  return { title, ingredients, steps }
 }
 
 /**
@@ -134,6 +141,55 @@ function reflowIngredientLines(lines: string[]): string[] {
     if (openParens < 0) openParens = 0
   }
   return merged
+}
+
+/**
+ * Manche Foto-/PDF-Scans stellen Zutaten als zweispaltiges Kachel-Raster dar
+ * (z. B. "1 Ei" neben "1 Scheibe Brot" in derselben Reihe). Bei nur wenigen
+ * Zeilen erkennt die Texterkennung oft keine echte Spaltentrennung und liest
+ * beide Kacheln einer Reihe als eine einzige Textzeile ein (z. B.
+ * "1 Ei 1 Scheibe Brot") – ohne diese Aufteilung würde daraus eine einzige,
+ * unsinnige Zutat. Heuristik: Taucht innerhalb einer Zeile – nach mindestens
+ * einem Namens-/Einheitswort seit dem letzten Zutatenanfang – erneut eine
+ * eigenständige Zahl auf (nicht innerhalb einer Klammer), beginnt dort
+ * vermutlich eine zweite, mitgelesene Zutat; die Zeile wird dort geteilt.
+ */
+function splitMergedIngredientLines(lines: string[]): string[] {
+  const QTY_TOKEN_RE = /^[\d½¼¾⅓⅔]+([.,]\d+)?$/
+  const result: string[] = []
+  for (const line of lines) {
+    const tokens = line.split(/\s+/).filter(Boolean)
+    const starts: number[] = []
+    let parenDepth = 0
+    let nameTokensSinceStart = 0
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i]
+      const isQtyToken = QTY_TOKEN_RE.test(t)
+      if (i === 0 && isQtyToken) {
+        starts.push(0)
+        nameTokensSinceStart = 0
+      } else if (isQtyToken && parenDepth <= 0 && nameTokensSinceStart > 0) {
+        starts.push(i)
+        nameTokensSinceStart = 0
+      } else {
+        nameTokensSinceStart++
+      }
+      parenDepth += countChar(t, '(') - countChar(t, ')')
+      if (parenDepth < 0) parenDepth = 0
+    }
+
+    if (starts.length <= 1) {
+      result.push(line)
+      continue
+    }
+    for (let s = 0; s < starts.length; s++) {
+      const from = starts[s]
+      const to = s + 1 < starts.length ? starts[s + 1] : tokens.length
+      const segment = tokens.slice(from, to).join(' ').trim()
+      if (segment) result.push(segment)
+    }
+  }
+  return result
 }
 
 function countChar(s: string, ch: string): number {

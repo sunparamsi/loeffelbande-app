@@ -29,6 +29,7 @@ export default function NewRecipeChooserPage() {
   const [reviewText, setReviewText] = useState('')
   const [reviewTitle, setReviewTitle] = useState('')
   const [reviewSource, setReviewSource] = useState<ReviewSource>('photo')
+  const [reviewCoverImage, setReviewCoverImage] = useState<string | null>(null)
   const [fileImportEnabled] = useState(getFileImportPref())
   const fileInputRef = useRef<HTMLInputElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
@@ -85,6 +86,7 @@ export default function NewRecipeChooserPage() {
       setReviewSource('photo')
       setReviewText(merged.trim())
       setReviewTitle(parseFreeText(merged.trim()).title)
+      setReviewCoverImage(null)
       setPanel('review')
     } catch {
       setError('Texterkennung ist fehlgeschlagen. Bitte manuell eintragen.')
@@ -99,7 +101,7 @@ export default function NewRecipeChooserPage() {
     setError(null)
     try {
       const { extractTextFromPdf } = await import('../lib/pdfImport')
-      const text = await extractTextFromPdf(file, setProgress)
+      const { text, coverImageDataUrl } = await extractTextFromPdf(file, setProgress)
       if (!text.trim()) {
         setError('In dieser PDF konnte kein Text gefunden werden – auch die automatische Texterkennung für gescannte Seiten hat nichts erkannt. Bitte prüfe, ob die Seiten lesbar sind, oder trag das Rezept manuell ein.')
         return
@@ -107,6 +109,7 @@ export default function NewRecipeChooserPage() {
       setReviewSource('pdf')
       setReviewText(text.trim())
       setReviewTitle(parseFreeText(text.trim()).title)
+      setReviewCoverImage(coverImageDataUrl ?? null)
       setPanel('review')
     } catch {
       setError('PDF konnte nicht gelesen werden. Bitte eine normale, nicht passwortgeschützte PDF-Datei verwenden.')
@@ -171,7 +174,13 @@ export default function NewRecipeChooserPage() {
   const doReviewImport = () => {
     const { ingredients, steps } = parseFreeText(reviewText)
     const title = reviewTitle.trim()
-    goToForm({ ...(title ? { title } : {}), ingredients, steps, description: '' })
+    goToForm({
+      ...(title ? { title } : {}),
+      ingredients,
+      steps,
+      description: '',
+      images: reviewCoverImage ? [{ id: crypto.randomUUID(), dataUrl: reviewCoverImage }] : [],
+    })
   }
 
   return (
@@ -258,6 +267,15 @@ export default function NewRecipeChooserPage() {
             <div className="mb-1 text-[11px] font-bold text-cream">Titel{!reviewTitle.trim() && ' (nicht erkannt – bitte eintragen)'}</div>
             <TextInput value={reviewTitle} onChange={(e) => setReviewTitle(e.target.value)} placeholder="Titel des Rezepts…" />
           </div>
+          {reviewCoverImage && (
+            <div className="mb-2.5 flex items-center gap-3 rounded-xl border border-line bg-surface-2 p-2.5">
+              <img src={reviewCoverImage} className="h-14 w-14 flex-shrink-0 rounded-lg object-cover" alt="" />
+              <div className="flex-1 text-[11.5px] leading-relaxed text-cream-soft">Titelbild aus der PDF erkannt und übernommen.</div>
+              <button onClick={() => setReviewCoverImage(null)} className="flex-shrink-0 text-[11px] font-bold text-rust">
+                Entfernen
+              </button>
+            </div>
+          )}
           <TextArea rows={10} value={reviewText} onChange={(e) => setReviewText(e.target.value)} />
           <PrimaryButton className="mt-3 w-full" onClick={doReviewImport}>
             Übernehmen
