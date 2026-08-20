@@ -4,10 +4,11 @@ import { repo } from '../data'
 import { ArrowLeftIcon, EditIcon, SearchIcon, CameraIcon, FileIcon, PdfIcon, InstagramIcon } from '../icons'
 import { PrimaryButton, TextInput, TextArea } from '../components/ui'
 import { importFromUrl } from '../lib/urlImport'
-import { recognizeText } from '../lib/ocr'
 import { mergeOcrTexts } from '../lib/mergeOcrText'
 import { parseFreeText } from '../lib/textParse'
 import { parseJsonFile, parseCsvFile } from '../lib/fileImport'
+import { getFileImportPref } from '../lib/prefs'
+import { useAuth } from '../lib/useAuth'
 import type { Recipe } from '../db/types'
 
 type Panel = null | 'url' | 'file' | 'social' | 'review'
@@ -15,6 +16,7 @@ type ReviewSource = 'photo' | 'pdf'
 
 export default function NewRecipeChooserPage() {
   const navigate = useNavigate()
+  const { authState } = useAuth()
   const [panel, setPanel] = useState<Panel>(null)
   const [urlValue, setUrlValue] = useState('')
   const [busy, setBusy] = useState(false)
@@ -27,6 +29,7 @@ export default function NewRecipeChooserPage() {
   const [reviewText, setReviewText] = useState('')
   const [reviewTitle, setReviewTitle] = useState('')
   const [reviewSource, setReviewSource] = useState<ReviewSource>('photo')
+  const [fileImportEnabled] = useState(getFileImportPref())
   const fileInputRef = useRef<HTMLInputElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const pdfInputRef = useRef<HTMLInputElement>(null)
@@ -56,6 +59,12 @@ export default function NewRecipeChooserPage() {
     setProgress(0)
     setError(null)
     try {
+      // Dynamisch geladen (statt statisch oben importiert): tesseract.js
+      // bringt mehrere MB an JS+WASM mit, die sonst jede:r Nutzer:in beim
+      // ersten Laden der App mitladen müsste, auch wenn "Foto scannen" nie
+      // genutzt wird – genau wie pdfImport.ts weiter unten wird das Modul
+      // erst geladen, wenn diese Funktion tatsächlich aufgerufen wird.
+      const { recognizeText } = await import('../lib/ocr')
       const texts: string[] = []
       for (let i = 0; i < files.length; i++) {
         const text = await recognizeText(files[i], (pct) => setProgress(Math.round(((i + pct / 100) / files.length) * 100)))
@@ -92,7 +101,7 @@ export default function NewRecipeChooserPage() {
       const { extractTextFromPdf } = await import('../lib/pdfImport')
       const text = await extractTextFromPdf(file, setProgress)
       if (!text.trim()) {
-        setError('In dieser PDF konnte kein Text gefunden werden – vermutlich ist sie aus gescannten Bildern zusammengesetzt. Versuch es stattdessen über "Foto scannen" mit einem Bild einer Seite.')
+        setError('In dieser PDF konnte kein Text gefunden werden – auch die automatische Texterkennung für gescannte Seiten hat nichts erkannt. Bitte prüfe, ob die Seiten lesbar sind, oder trag das Rezept manuell ein.')
         return
       }
       setReviewSource('pdf')
@@ -118,7 +127,17 @@ export default function NewRecipeChooserPage() {
       if (recipes.length === 1) {
         goToForm(recipes[0])
       } else {
-        for (const r of recipes) await repo.saveRecipe(r as Recipe)
+        // Umgeht RecipeFormPage (die den Ersteller sonst beim Speichern
+        // setzt), da hier mehrere Rezepte auf einmal ohne Formular-Umweg
+        // direkt gespeichert werden -> Ersteller hier selbst stempeln.
+        for (const r of recipes) {
+          const toSave: Recipe = {
+            ...(r as Recipe),
+            createdByUserId: authState?.currentUserId ?? undefined,
+            createdByName: authState?.currentMemberName ?? undefined,
+          }
+          await repo.saveRecipe(toSave)
+        }
         navigate('/rezepte')
       }
     } catch {
@@ -166,12 +185,10 @@ export default function NewRecipeChooserPage() {
       </div>
       <div className="px-[18px] pb-3 text-[12.5px] text-cream-soft">Wie möchtest du das Rezept hinzufügen?</div>
 
-      <ImportCard icon={<EditIcon width={20} height={20} />} title="Manuell eingeben" onClick={() => navigate('/rezepte/neu/formular')} highlight>
-        Titel, Zutaten und Zubereitung selbst eintippen – volle Kontrolle über jedes Detail.
-      </ImportCard>
+      <ImportCard icon={<EditIcon width={20} height={20} />} title="Manuell eingeben" onClick={() => navigate('/rezepte/neu/formular')} highlight />
 
       <ImportCard icon={<SearchIcon width={20} height={20} />} title="Von Webseite importieren" onClick={() => setPanel(panel === 'url' ? null : 'url')}>
-        Rezept-Link einfügen – wird automatisch übernommen, wenn die Seite das unterstützt.
+        Rezeptlink einfügen
       </ImportCard>
       {panel === 'url' && (
         <div className="mx-[18px] mb-3 rounded-2xl border border-line bg-surface p-4 shadow-card-sm">
@@ -182,9 +199,7 @@ export default function NewRecipeChooserPage() {
         </div>
       )}
 
-      <ImportCard icon={<CameraIcon width={20} height={20} />} title="Foto scannen" onClick={() => photoInputRef.current?.click()}>
-        Foto(s) von Kochbuch/gedrucktem Rezept – auch mehrere auf einmal (z. B. mehrere Screenshots desselben Rezepts). Text wird direkt auf deinem Gerät erkannt und danach zusammengeführt, doppelte Zeilen werden automatisch entfernt. Du kannst den erkannten Text danach noch korrigieren.
-      </ImportCard>
+      <ImportCard icon={<CameraIcon width={20} height={20} />} title="Foto scannen" onClick={() => photoInputRef.current?.click()} />
       <input
         ref={photoInputRef}
         type="file"
@@ -194,19 +209,21 @@ export default function NewRecipeChooserPage() {
         onChange={(e) => e.target.files && e.target.files.length > 0 && doPhotoImport(Array.from(e.target.files))}
       />
 
-      <ImportCard icon={<PdfIcon width={20} height={20} />} title="Aus PDF importieren" onClick={() => pdfInputRef.current?.click()}>
-        PDF-Datei mit einem Rezept einlesen – funktioniert bei PDFs mit echtem Text (z. B. von einer Webseite exportiert).
-      </ImportCard>
+      <ImportCard icon={<PdfIcon width={20} height={20} />} title="Aus PDF importieren" onClick={() => pdfInputRef.current?.click()} />
       <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => e.target.files?.[0] && doPdfImport(e.target.files[0])} />
       {busy && progress > 0 && <div className="mx-[18px] mb-3 text-[11px] text-cream-soft">Lese…{progress}%</div>}
 
-      <ImportCard icon={<FileIcon width={20} height={20} />} title="Aus Datei importieren" onClick={() => fileInputRef.current?.click()}>
-        JSON- oder CSV-Datei mit einem oder mehreren Rezepten auf einmal einlesen.
-      </ImportCard>
-      <input ref={fileInputRef} type="file" accept=".json,.csv" className="hidden" onChange={(e) => e.target.files?.[0] && doFileImport(e.target.files[0])} />
+      {fileImportEnabled && (
+        <>
+          <ImportCard icon={<FileIcon width={20} height={20} />} title="Aus Datei importieren" onClick={() => fileInputRef.current?.click()}>
+            JSON- oder CSV-Datei mit einem oder mehreren Rezepten einlesen
+          </ImportCard>
+          <input ref={fileInputRef} type="file" accept=".json,.csv" className="hidden" onChange={(e) => e.target.files?.[0] && doFileImport(e.target.files[0])} />
+        </>
+      )}
 
       <ImportCard icon={<InstagramIcon width={20} height={20} />} title="Aus Social Media" onClick={() => setPanel(panel === 'social' ? null : 'social')}>
-        Link + Bildunterschrift einfügen – wir strukturieren automatisch vor. Volles Auslesen der Plattformen ist technisch nicht möglich.
+        Link + Bildunterschrift einfügen
       </ImportCard>
       {panel === 'social' && (
         <div className="mx-[18px] mb-3 rounded-2xl border border-line bg-surface p-4 shadow-card-sm">
@@ -262,19 +279,19 @@ function ImportCard({
 }: {
   icon: React.ReactNode
   title: string
-  children: React.ReactNode
+  children?: React.ReactNode
   onClick: () => void
   highlight?: boolean
 }) {
   return (
     <button
       onClick={onClick}
-      className={`mx-[18px] mb-3 flex w-[calc(100%-36px)] items-start gap-3.5 rounded-2xl border bg-surface p-4 text-left shadow-card-sm ${highlight ? 'border-rust' : 'border-line'}`}
+      className={`mx-[18px] mb-3 flex w-[calc(100%-36px)] ${children ? 'items-start' : 'items-center'} gap-3.5 rounded-2xl border bg-surface p-4 text-left shadow-card-sm ${highlight ? 'border-rust' : 'border-line'}`}
     >
       <div className="flex h-[42px] w-[42px] flex-shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--color-rust)_12%,white)] text-rust">{icon}</div>
       <div>
-        <div className="mb-0.5 text-sm font-bold text-cream">{title}</div>
-        <div className="text-[11.5px] leading-relaxed text-cream-soft">{children}</div>
+        <div className={children ? 'mb-0.5 text-sm font-bold text-cream' : 'text-sm font-bold text-cream'}>{title}</div>
+        {children && <div className="text-[11.5px] leading-relaxed text-cream-soft">{children}</div>}
       </div>
     </button>
   )

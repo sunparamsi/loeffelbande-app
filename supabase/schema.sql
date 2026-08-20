@@ -45,20 +45,17 @@ create table if not exists recipes (
   source_url text,
   favorite boolean not null default false,
   created_by uuid references auth.users(id) on delete set null,
+  -- Namens-Snapshot des Erstellers zum Anlagezeitpunkt (siehe App-seitiges
+  -- Recipe.createdByName) – bleibt auch dann korrekt lesbar, wenn die Person
+  -- sich später umbenennt oder den Haushalt verlässt.
+  created_by_name text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
-create table if not exists pantry_items (
-  id uuid primary key default gen_random_uuid(),
-  household_id uuid not null references households(id) on delete cascade,
-  name text not null,
-  quantity numeric,
-  unit text,
-  category text,
-  expiry_date date,
-  updated_at timestamptz not null default now()
-);
+-- Für bereits bestehende Installationen: Spalte nachträglich ergänzen, falls
+-- sie fehlt (bei einer frisch erstellten Tabelle über CREATE TABLE oben ist
+-- das ein No-op).
+alter table recipes add column if not exists created_by_name text;
 
 create table if not exists shopping_list_items (
   id uuid primary key default gen_random_uuid(),
@@ -195,10 +192,6 @@ drop trigger if exists trg_recipes_updated_at on recipes;
 create trigger trg_recipes_updated_at before update on recipes
   for each row execute function set_updated_at();
 
-drop trigger if exists trg_pantry_updated_at on pantry_items;
-create trigger trg_pantry_updated_at before update on pantry_items
-  for each row execute function set_updated_at();
-
 drop trigger if exists trg_shopping_updated_at on shopping_list_items;
 create trigger trg_shopping_updated_at before update on shopping_list_items
   for each row execute function set_updated_at();
@@ -229,7 +222,6 @@ grant execute on function get_shared_recipe(text) to anon, authenticated;
 alter table households enable row level security;
 alter table household_members enable row level security;
 alter table recipes enable row level security;
-alter table pantry_items enable row level security;
 alter table shopping_list_items enable row level security;
 
 -- households: der Beitritts-Code muss vor dem Login nachschlagbar sein,
@@ -276,32 +268,27 @@ drop policy if exists recipes_insert_editors on recipes;
 create policy recipes_insert_editors on recipes for insert
   with check (household_role(household_id) in ('owner', 'editor'));
 
+-- Bearbeiten/Löschen nur durch den ursprünglichen Ersteller ODER die Rolle
+-- "Besitzer" (nicht mehr jede:r Bearbeiter:in) – created_by is null deckt
+-- Alt-Rezepte ab, die vor Einführung dieses Felds angelegt wurden, damit die
+-- niemand aussperrt.
 drop policy if exists recipes_update_editors on recipes;
 create policy recipes_update_editors on recipes for update
-  using (household_role(household_id) in ('owner', 'editor'))
-  with check (household_role(household_id) in ('owner', 'editor'));
+  using (
+    household_role(household_id) = 'owner'
+    or (household_role(household_id) = 'editor' and (created_by = auth.uid() or created_by is null))
+  )
+  with check (
+    household_role(household_id) = 'owner'
+    or (household_role(household_id) = 'editor' and (created_by = auth.uid() or created_by is null))
+  );
 
 drop policy if exists recipes_delete_editors on recipes;
 create policy recipes_delete_editors on recipes for delete
-  using (household_role(household_id) in ('owner', 'editor'));
-
--- pantry_items
-drop policy if exists pantry_select_members on pantry_items;
-create policy pantry_select_members on pantry_items for select
-  using (is_household_member(household_id));
-
-drop policy if exists pantry_insert_editors on pantry_items;
-create policy pantry_insert_editors on pantry_items for insert
-  with check (household_role(household_id) in ('owner', 'editor'));
-
-drop policy if exists pantry_update_editors on pantry_items;
-create policy pantry_update_editors on pantry_items for update
-  using (household_role(household_id) in ('owner', 'editor'))
-  with check (household_role(household_id) in ('owner', 'editor'));
-
-drop policy if exists pantry_delete_editors on pantry_items;
-create policy pantry_delete_editors on pantry_items for delete
-  using (household_role(household_id) in ('owner', 'editor'));
+  using (
+    household_role(household_id) = 'owner'
+    or (household_role(household_id) = 'editor' and (created_by = auth.uid() or created_by is null))
+  );
 
 -- shopping_list_items
 drop policy if exists shopping_select_members on shopping_list_items;
@@ -370,7 +357,6 @@ create policy share_delete_editors on recipe_share_links for delete
 -- Realtime: damit z.B. die Einkaufsliste live bei allen aktualisiert wird ----
 alter publication supabase_realtime add table shopping_list_items;
 alter publication supabase_realtime add table recipes;
-alter publication supabase_realtime add table pantry_items;
 alter publication supabase_realtime add table household_members;
 alter publication supabase_realtime add table recipe_pings;
 alter publication supabase_realtime add table household_settings;

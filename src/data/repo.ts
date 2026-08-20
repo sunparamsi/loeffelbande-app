@@ -1,4 +1,4 @@
-import type { Recipe, PantryItem, ShoppingListItem, ActivityPing, ShareLink, HouseholdSettings } from '../db/types'
+import type { Recipe, ShoppingListItem, ActivityPing, ShareLink, HouseholdSettings } from '../db/types'
 
 export type Role = 'owner' | 'editor' | 'viewer'
 
@@ -22,6 +22,10 @@ export interface AuthState {
   household: HouseholdInfo | null
   currentRole: Role
   currentMemberName: string | null
+  /** Stabile Kennung der aktuell angemeldeten Person (Cloud: auth-User-ID,
+   * Solo: fester 'solo'-Wert) – zum Abgleich mit Recipe.createdByUserId für
+   * Bearbeitungsrecht und den "Nur meine"-Filter. */
+  currentUserId: string | null
 }
 
 export type JoinResult =
@@ -52,10 +56,6 @@ export interface Repository {
   getRecipe(id: string): Promise<Recipe | undefined>
   saveRecipe(recipe: Recipe): Promise<void>
   deleteRecipe(id: string): Promise<void>
-
-  listPantry(): Promise<PantryItem[]>
-  savePantryItem(item: PantryItem): Promise<void>
-  deletePantryItem(id: string): Promise<void>
 
   listShoppingList(): Promise<ShoppingListItem[]>
   saveShoppingItem(item: ShoppingListItem): Promise<void>

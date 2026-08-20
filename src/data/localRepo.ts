@@ -1,6 +1,6 @@
 import { localDb } from './db'
 import type { Repository, AuthState, Member, JoinResult } from './repo'
-import type { Recipe, PantryItem, ShoppingListItem, ActivityPing, ShareLink, HouseholdSettings } from '../db/types'
+import type { Recipe, ShoppingListItem, ActivityPing, ShareLink, HouseholdSettings } from '../db/types'
 import { DEFAULT_CATEGORIES } from '../db/types'
 import { getSoloDisplayName, setSoloDisplayName } from '../lib/prefs'
 
@@ -38,6 +38,7 @@ export class LocalRepository implements Repository {
       household: null,
       currentRole: 'owner',
       currentMemberName: getSoloDisplayName(),
+      currentUserId: 'solo',
     }
   }
 
@@ -74,16 +75,6 @@ export class LocalRepository implements Repository {
   }
   async deleteRecipe(id: string): Promise<void> {
     await localDb.recipes.delete(id)
-  }
-
-  async listPantry(): Promise<PantryItem[]> {
-    return localDb.pantryItems.orderBy('name').toArray()
-  }
-  async savePantryItem(item: PantryItem): Promise<void> {
-    await localDb.pantryItems.put(item)
-  }
-  async deletePantryItem(id: string): Promise<void> {
-    await localDb.pantryItems.delete(id)
   }
 
   async listShoppingList(): Promise<ShoppingListItem[]> {

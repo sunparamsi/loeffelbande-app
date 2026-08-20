@@ -1,6 +1,6 @@
 import type { Ingredient, Recipe, RecipeStep } from '../db/types'
-import { convertToMetric, matchUnitWord } from './units'
 import { isJunkStepLine, stripInjectedContent } from './stepClean'
+import { parseIngredientLine } from './ingredientParse'
 
 function isoDurationToMinutes(iso?: string): number | undefined {
   if (!iso) return undefined
@@ -116,27 +116,4 @@ export async function importFromUrl(url: string): Promise<Partial<Recipe> | null
     images: image ? [{ id: crypto.randomUUID(), dataUrl: String(image) }] : [],
     sourceUrl: url,
   }
-}
-
-/** Zerlegt eine Zutatenzeile in Menge/Einheit/Name. Das Wort nach der Zahl
- * wird nur dann als Einheit behandelt, wenn es in UNIT_WORDS vorkommt –
- * sonst gehört es zum Namen (verhindert z. B., dass bei "2 Zwiebeln"
- * "Zwiebeln" fälschlich als Einheit erkannt und der Name leer wird). */
-function parseIngredientLine(line: string): Ingredient {
-  const m = line.match(/^([\d½¼¾⅓⅔.,/]+)\s*([a-zA-Zäöüß.]*)\s*(.*)$/)
-  const matchedUnit = m ? matchUnitWord(m[2]) : null
-  if (m && matchedUnit) {
-    const qty = Number(m[1].replace(',', '.')) || null
-    const { quantity, unit } = convertToMetric(qty, matchedUnit)
-    return { id: crypto.randomUUID(), quantity, unit, name: m[3] }
-  }
-  if (m && m[2] && !m[3]) {
-    // Zahl gefolgt von genau einem Wort, das keine bekannte Einheit ist –
-    // das Wort gehört zum Namen (z. B. "2 Zwiebeln"), nicht als Einheit weglassen.
-    return { id: crypto.randomUUID(), quantity: Number(m[1].replace(',', '.')) || null, unit: '', name: m[2] }
-  }
-  if (m && m[1] && (m[2] || m[3])) {
-    return { id: crypto.randomUUID(), quantity: Number(m[1].replace(',', '.')) || null, unit: '', name: `${m[2]} ${m[3]}`.trim() }
-  }
-  return { id: crypto.randomUUID(), quantity: null, unit: '', name: line }
 }

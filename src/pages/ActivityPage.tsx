@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { repo } from '../data'
 import type { ActivityPing } from '../db/types'
 
@@ -14,6 +15,7 @@ function timeAgo(ts: number): string {
 }
 
 export default function ActivityPage() {
+  const navigate = useNavigate()
   const [items, setItems] = useState<ActivityPing[]>([])
 
   useEffect(() => {
@@ -43,7 +45,12 @@ export default function ActivityPage() {
       )}
 
       {items.map((a) => (
-        <div key={a.id} className="flex gap-3 border-b border-line px-[18px] py-3.5">
+        <div
+          key={a.id}
+          role={a.recipeId ? 'button' : undefined}
+          onClick={a.recipeId ? () => navigate(`/rezepte/${a.recipeId}`) : undefined}
+          className={`flex gap-3 border-b border-line px-[18px] py-3.5 ${a.recipeId ? 'cursor-pointer' : ''}`}
+        >
           <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border-[1.5px] border-rust-solid bg-[color-mix(in_srgb,var(--color-rust)_14%,white)] text-[13px] font-bold text-rust">
             {(a.fromMemberName ?? '?').slice(0, 1).toUpperCase()}
           </div>

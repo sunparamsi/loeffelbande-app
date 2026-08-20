@@ -41,3 +41,41 @@ export function setSoloDisplayName(name: string | null) {
   if (name && name.trim()) localStorage.setItem(SOLO_NAME_KEY, name.trim())
   else localStorage.removeItem(SOLO_NAME_KEY)
 }
+
+/** Der JSON/CSV-Datei-Import ist ein Nischen-Feature (Massenimport aus
+ * anderen Rezept-Apps oder eigenen Tabellen) und für die meisten Nutzer nicht
+ * relevant — daher standardmäßig ausgeblendet in "Neues Rezept" und nur nach
+ * bewusstem Einschalten in den Einstellungen sichtbar. */
+const FILE_IMPORT_KEY = 'loeffelbande-file-import-pref'
+
+export function getFileImportPref(): boolean {
+  return localStorage.getItem(FILE_IMPORT_KEY) === '1'
+}
+
+export function setFileImportPref(enabled: boolean) {
+  localStorage.setItem(FILE_IMPORT_KEY, enabled ? '1' : '0')
+}
+
+/** Zuletzt gewählter Kategorie-/Favoriten-Filter auf der Rezepte-Übersicht –
+ * gemerkt, damit er beim Wechsel auf einen anderen Tab und zurück erhalten
+ * bleibt, statt sich beim Neu-Mounten der Seite immer auf "Alle" zurückzusetzen. */
+const RECIPE_LIST_FILTER_KEY = 'loeffelbande-recipe-list-filter'
+
+export function getRecipeListFilter(): string | null {
+  return localStorage.getItem(RECIPE_LIST_FILTER_KEY)
+}
+
+export function setRecipeListFilter(filter: string) {
+  localStorage.setItem(RECIPE_LIST_FILTER_KEY, filter)
+}
+
+/** "Nur meine Rezepte"-Filter auf der Rezepte-Übersicht, ebenfalls gemerkt. */
+const RECIPE_LIST_ONLY_MINE_KEY = 'loeffelbande-recipe-list-only-mine'
+
+export function getRecipeListOnlyMine(): boolean {
+  return localStorage.getItem(RECIPE_LIST_ONLY_MINE_KEY) === '1'
+}
+
+export function setRecipeListOnlyMine(enabled: boolean) {
+  localStorage.setItem(RECIPE_LIST_ONLY_MINE_KEY, enabled ? '1' : '0')
+}

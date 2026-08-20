@@ -1,6 +1,7 @@
 import type { Ingredient, RecipeStep } from '../db/types'
-import { UNIT_WORDS, convertToMetric, matchUnitWord } from './units'
+import { UNIT_WORDS } from './units'
 import { isJunkStepLine } from './stepClean'
+import { parseIngredientLine } from './ingredientParse'
 
 const INGREDIENTS_HEADER_RE = /^(ingredients?|zutaten)\s*:?$/i
 const METHOD_HEADER_RE = /^(method|instructions?|directions?|zubereitung|preparation|steps?)\s*:?$/i
@@ -149,34 +150,6 @@ function looksLikeTitle(line: string): boolean {
   if (line.length > 90) return false
   if (isJunkStepLine(line)) return false
   return true
-}
-
-/** Zerlegt eine Zutatenzeile in Menge/Einheit/Name. Das Wort nach der Zahl
- * wird nur dann als Einheit behandelt, wenn es in UNIT_WORDS vorkommt –
- * sonst gehört es zum Namen (verhindert z. B., dass bei "2 Zwiebeln"
- * "Zwiebeln" fälschlich als Einheit erkannt und der Name leer wird). Zeilen
- * ganz ohne führende Zahl (z. B. "Flaky sea salt") landen komplett im Namen. */
-function parseIngredientLine(line: string): Ingredient {
-  const m = line.match(/^([\d½¼¾⅓⅔.,/]+)\s*([a-zA-Zäöüß.]*)\s*(.*)$/)
-  const matchedUnit = m ? matchUnitWord(m[2]) : null
-  if (m && matchedUnit) {
-    const { quantity, unit } = convertToMetric(parseQty(m[1]), matchedUnit)
-    return { id: crypto.randomUUID(), quantity, unit, name: m[3] }
-  }
-  if (m && m[2] && !m[3]) {
-    return { id: crypto.randomUUID(), quantity: parseQty(m[1]), unit: '', name: m[2] }
-  }
-  if (m && m[1] && (m[2] || m[3])) {
-    return { id: crypto.randomUUID(), quantity: parseQty(m[1]), unit: '', name: `${m[2]} ${m[3]}`.trim() }
-  }
-  return { id: crypto.randomUUID(), quantity: null, unit: '', name: line }
-}
-
-function parseQty(raw: string): number | null {
-  const map: Record<string, number> = { '½': 0.5, '¼': 0.25, '¾': 0.75, '⅓': 0.33, '⅔': 0.67 }
-  if (map[raw]) return map[raw]
-  const n = Number(raw.replace(',', '.'))
-  return Number.isFinite(n) ? n : null
 }
 
 function escapeRegExp(s: string): string {

@@ -1,10 +1,13 @@
 import type { Ingredient, Recipe, RecipeStep } from '../db/types'
+import { parseIngredientLine } from './ingredientParse'
 
 function toIngredient(raw: unknown): Ingredient {
   if (typeof raw === 'string') {
-    const m = raw.match(/^([\d½¼¾⅓⅔.,/]+)\s*([a-zA-Zäöüß]*)\s+(.*)$/)
-    if (m) return { id: crypto.randomUUID(), quantity: Number(m[1].replace(',', '.')) || null, unit: m[2] || '', name: m[3] }
-    return { id: crypto.randomUUID(), quantity: null, unit: '', name: raw }
+    // Manche JSON/CSV-Exporte liefern Zutaten als reinen Freitext-String
+    // (statt strukturierter quantity/unit/name-Felder) – dieselbe Erkennung
+    // wie beim Freitext-/URL-Import nutzen, statt einer eigenen, schwächeren
+    // Variante (die z. B. Einheiten nicht validierte und Brüche nicht kannte).
+    return parseIngredientLine(raw)
   }
   const r = raw as Partial<Ingredient>
   return { id: crypto.randomUUID(), name: r.name ?? '', quantity: r.quantity ?? null, unit: r.unit ?? '', note: r.note }

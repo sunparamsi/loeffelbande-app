@@ -45,17 +45,16 @@ export interface Recipe {
   links: RecipeLink[]
   sourceUrl?: string
   favorite: boolean
+  /** Wer das Rezept angelegt hat (Cloud: auth.users-ID, Solo: fester 'solo'-
+   * Wert) – wird einmalig bei der Erstellung gesetzt und danach nie mehr
+   * verändert, auch nicht beim Bearbeiten durch andere Haushaltsmitglieder.
+   * Bestimmt zusammen mit createdByName Bearbeitungsrecht + Filter/Label. */
+  createdByUserId?: string
+  /** Anzeigename des Erstellers zum Zeitpunkt der Erstellung (Snapshot, damit
+   * das Label auch dann stimmt, wenn die Person sich später umbenennt oder
+   * den Haushalt verlässt). */
+  createdByName?: string
   createdAt: number
-  updatedAt: number
-}
-
-export interface PantryItem {
-  id: string
-  name: string
-  quantity: number | null
-  unit: string
-  category: string
-  expiryDate?: string
   updatedAt: number
 }
 

@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient'
 import type { Repository, AuthState, Member, Role, JoinResult, HouseholdInfo } from './repo'
-import type { Recipe, PantryItem, ShoppingListItem, ActivityPing, ShareLink, HouseholdSettings } from '../db/types'
+import type { Recipe, ShoppingListItem, ActivityPing, ShareLink, HouseholdSettings } from '../db/types'
 import { DEFAULT_CATEGORIES } from '../db/types'
 
 function slugify(name: string): string {
@@ -113,7 +113,7 @@ export class SupabaseRepository implements Repository {
   async getAuthState(): Promise<AuthState> {
     const c = await this.ctx()
     if (!c) {
-      return { cloudConfigured: true, loggedIn: false, household: null, currentRole: 'viewer', currentMemberName: null }
+      return { cloudConfigured: true, loggedIn: false, household: null, currentRole: 'viewer', currentMemberName: null, currentUserId: null }
     }
     return {
       cloudConfigured: true,
@@ -121,6 +121,7 @@ export class SupabaseRepository implements Repository {
       household: c.household,
       currentRole: c.role,
       currentMemberName: c.memberName,
+      currentUserId: c.userId,
     }
   }
 
@@ -255,31 +256,13 @@ export class SupabaseRepository implements Repository {
 
   async saveRecipe(recipe: Recipe): Promise<void> {
     const c = await this.requireCtx()
-    const row = recipeToRow(recipe, c.householdId, c.userId)
+    const row = recipeToRow(recipe, c.householdId)
     const { error } = await this.sb().from('recipes').upsert(row)
     if (error) throw error
   }
 
   async deleteRecipe(id: string): Promise<void> {
     const { error } = await this.sb().from('recipes').delete().eq('id', id)
-    if (error) throw error
-  }
-
-  async listPantry(): Promise<PantryItem[]> {
-    const c = await this.requireCtx()
-    const { data, error } = await this.sb().from('pantry_items').select('*').eq('household_id', c.householdId).order('name', { ascending: true })
-    if (error) throw error
-    return (data ?? []).map(rowToPantry)
-  }
-
-  async savePantryItem(item: PantryItem): Promise<void> {
-    const c = await this.requireCtx()
-    const { error } = await this.sb().from('pantry_items').upsert(pantryToRow(item, c.householdId))
-    if (error) throw error
-  }
-
-  async deletePantryItem(id: string): Promise<void> {
-    const { error } = await this.sb().from('pantry_items').delete().eq('id', id)
     if (error) throw error
   }
 
@@ -308,7 +291,6 @@ export class SupabaseRepository implements Repository {
       const channel = this.sb()
         .channel(`household-${c.householdId}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'recipes', filter: `household_id=eq.${c.householdId}` }, cb)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'pantry_items', filter: `household_id=eq.${c.householdId}` }, cb)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'shopping_list_items', filter: `household_id=eq.${c.householdId}` }, cb)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'household_members', filter: `household_id=eq.${c.householdId}` }, cb)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'recipe_pings', filter: `household_id=eq.${c.householdId}` }, cb)
@@ -546,12 +528,14 @@ function rowToRecipe(row: any): Recipe {
     links: row.links ?? [],
     sourceUrl: row.source_url ?? undefined,
     favorite: row.favorite ?? false,
+    createdByUserId: row.created_by ?? undefined,
+    createdByName: row.created_by_name ?? undefined,
     createdAt: row.created_at ? Date.parse(row.created_at) : Date.now(),
     updatedAt: row.updated_at ? Date.parse(row.updated_at) : Date.now(),
   }
 }
 
-function recipeToRow(r: Recipe, householdId: string, userId: string) {
+function recipeToRow(r: Recipe, householdId: string) {
   return {
     id: r.id,
     household_id: householdId,
@@ -570,32 +554,12 @@ function recipeToRow(r: Recipe, householdId: string, userId: string) {
     links: r.links,
     source_url: r.sourceUrl ?? null,
     favorite: r.favorite,
-    created_by: userId,
-  }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function rowToPantry(row: any): PantryItem {
-  return {
-    id: row.id,
-    name: row.name,
-    quantity: row.quantity === null ? null : Number(row.quantity),
-    unit: row.unit ?? '',
-    category: row.category ?? '',
-    expiryDate: row.expiry_date ?? undefined,
-    updatedAt: row.updated_at ? Date.parse(row.updated_at) : Date.now(),
-  }
-}
-
-function pantryToRow(p: PantryItem, householdId: string) {
-  return {
-    id: p.id,
-    household_id: householdId,
-    name: p.name,
-    quantity: p.quantity,
-    unit: p.unit || null,
-    category: p.category || null,
-    expiry_date: p.expiryDate || null,
+    // Wird einmalig bei der Erstellung auf dem Recipe-Objekt gesetzt (siehe
+    // RecipeFormPage.save()) und danach unverändert mitgespeichert – so
+    // überschreibt ein späteres Bearbeiten durch eine andere Person NICHT
+    // den ursprünglichen Ersteller.
+    created_by: r.createdByUserId ?? null,
+    created_by_name: r.createdByName ?? null,
   }
 }
 

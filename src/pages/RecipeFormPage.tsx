@@ -4,9 +4,12 @@ import { repo } from '../data'
 import type { Recipe, Ingredient, RecipeLink, RecipeImage, Difficulty } from '../db/types'
 import { ArrowLeftIcon, CameraIcon, PlusIcon, XIcon, TrashIcon } from '../icons'
 import { Chip, TextInput, TextArea, FormLabel } from '../components/ui'
+import ConfirmModal from '../components/ConfirmModal'
 import { useCategories } from '../lib/useCategories'
+import { useAuth } from '../lib/useAuth'
 import { fileToCompressedDataUrl } from '../lib/image'
 import { translateTexts } from '../lib/translate'
+import { canEditRecipe } from '../lib/recipePermissions'
 
 function emptyRecipe(): Recipe {
   const now = Date.now()
@@ -33,6 +36,7 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation() as { state?: { prefill?: Partial<Recipe> } }
+  const { authState } = useAuth()
   const { categories, refresh: refreshCategories } = useCategories()
   const [recipe, setRecipe] = useState<Recipe>(emptyRecipe())
   const [newCategory, setNewCategory] = useState('')
@@ -42,11 +46,15 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const [saving, setSaving] = useState(false)
   const [translating, setTranslating] = useState(false)
   const [translateNote, setTranslateNote] = useState<string | null>(null)
+  const [loadedForEdit, setLoadedForEdit] = useState(mode !== 'edit')
+  const [titleMissing, setTitleMissing] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
     if (mode === 'edit' && id) {
       repo.getRecipe(id).then((r) => {
         if (r) setRecipe(r)
+        setLoadedForEdit(true)
       })
     } else if (mode === 'create' && location.state?.prefill) {
       const base: Recipe = { ...emptyRecipe(), ...location.state!.prefill }
@@ -66,13 +74,21 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
   const save = async () => {
     if (!recipe.title.trim()) {
-      alert('Bitte einen Titel angeben.')
+      setTitleMissing(true)
       return
     }
     setSaving(true)
     try {
       const isNew = mode === 'create'
       const toSave = { ...recipe, updatedAt: Date.now() }
+      // Ersteller einmalig bei der Erstellung setzen (nie beim Bearbeiten
+      // überschreiben, auch nicht wenn eine andere Person später speichert) –
+      // siehe recipePermissions.ts für die Bearbeitungsrechte, die darauf
+      // aufbauen, und supabase/schema.sql für die serverseitige Durchsetzung.
+      if (isNew && authState) {
+        toSave.createdByUserId = authState.currentUserId ?? undefined
+        toSave.createdByName = authState.currentMemberName ?? undefined
+      }
       await repo.saveRecipe(toSave)
       if (isNew && repo.mode === 'cloud') {
         repo.announceNewRecipe(toSave.id).catch(() => {})
@@ -81,6 +97,11 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
     } finally {
       setSaving(false)
     }
+  }
+
+  const deleteRecipe = async () => {
+    await repo.deleteRecipe(recipe.id)
+    navigate('/rezepte', { replace: true })
   }
 
   const onPickImages = async (files: FileList | null) => {
@@ -155,6 +176,26 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
     } finally {
       setTranslating(false)
     }
+  }
+
+  // Bearbeitungsrecht erst prüfen, sobald das Rezept im Edit-Modus geladen
+  // ist (sonst würde kurz das leere emptyRecipe() fälschlich "erlaubt" sein).
+  if (mode === 'edit' && loadedForEdit && !canEditRecipe(recipe, authState)) {
+    return (
+      <div className="pb-10">
+        <div className="flex items-center justify-between px-[18px] py-[18px]">
+          <button onClick={() => navigate(-1)} className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-line bg-surface text-cream shadow-card-sm">
+            <ArrowLeftIcon width={16} height={16} />
+          </button>
+          <h1 className="text-lg font-extrabold text-cream">Rezept bearbeiten</h1>
+          <div className="w-[34px]" />
+        </div>
+        <div className="mx-[18px] rounded-2xl border border-dashed border-line p-6 text-center text-[12.5px] text-cream-soft">
+          Nur {recipe.createdByName ? <b className="text-cream">{recipe.createdByName}</b> : 'die Person, die dieses Rezept angelegt hat'} oder der Besitzer des Haushalts
+          können dieses Rezept bearbeiten oder löschen.
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -376,16 +417,24 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
       {mode === 'edit' && (
         <button
-          onClick={async () => {
-            if (confirm('Rezept wirklich löschen?')) {
-              await repo.deleteRecipe(recipe.id)
-              navigate('/rezepte', { replace: true })
-            }
-          }}
+          onClick={() => setConfirmDelete(true)}
           className="mx-[18px] mt-8 flex w-[calc(100%-36px)] items-center justify-center gap-1.5 rounded-[10px] border border-line py-2.5 text-xs font-bold text-rust"
         >
           <TrashIcon width={14} height={14} /> Rezept löschen
         </button>
+      )}
+
+      {titleMissing && <ConfirmModal title="Titel fehlt" message="Bitte einen Titel angeben." confirmLabel="OK" onConfirm={() => setTitleMissing(false)} />}
+
+      {confirmDelete && (
+        <ConfirmModal
+          title="Rezept löschen"
+          message="Rezept wirklich löschen? Das kann nicht rückgängig gemacht werden."
+          confirmLabel="Löschen"
+          danger
+          onConfirm={deleteRecipe}
+          onCancel={() => setConfirmDelete(false)}
+        />
       )}
     </div>
   )

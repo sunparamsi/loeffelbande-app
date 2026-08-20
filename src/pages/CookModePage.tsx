@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { repo } from '../data'
 import type { Recipe } from '../db/types'
-import { XIcon, SunIcon } from '../icons'
+import { XIcon, SunIcon, PlusIcon, CheckIcon } from '../icons'
 import { getWakeLockPref } from '../lib/prefs'
 import { PrimaryButton, OutlineButton } from '../components/ui'
 
@@ -12,12 +12,35 @@ export default function CookModePage() {
   const [recipe, setRecipe] = useState<Recipe | null>(null)
   const [stepIndex, setStepIndex] = useState(0)
   const [awake, setAwake] = useState(false)
+  const [addedToShoppingList, setAddedToShoppingList] = useState(false)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
 
   useEffect(() => {
     if (!id) return
     repo.getRecipe(id).then((r) => setRecipe(r ?? null))
   }, [id])
+
+  // Direkt während des Kochens fehlende Zutaten nachbestellen können, ohne
+  // das Rezept dafür verlassen zu müssen – dieselbe "alle Zutaten
+  // hinzufügen"-Logik wie auf RecipeDetailPage, hier als kompakter Button.
+  const addAllToShoppingList = async () => {
+    if (!recipe) return
+    const items = await repo.listShoppingList()
+    const existingNames = new Set(items.map((i) => i.name.toLowerCase()))
+    for (const ing of recipe.ingredients) {
+      if (existingNames.has(ing.name.toLowerCase())) continue
+      await repo.saveShoppingItem({
+        id: crypto.randomUUID(),
+        name: ing.name,
+        quantity: ing.quantity,
+        unit: ing.unit,
+        checked: false,
+        fromRecipeIds: [recipe.id],
+        addedAt: Date.now(),
+      })
+    }
+    setAddedToShoppingList(true)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -77,7 +100,19 @@ export default function CookModePage() {
 
       {recipe.ingredients.length > 0 && (
         <div className="px-6 pb-3.5">
-          <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-rust">Zutaten im Überblick</div>
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-rust">Zutaten im Überblick</div>
+            <button
+              onClick={addAllToShoppingList}
+              disabled={addedToShoppingList}
+              className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold ${
+                addedToShoppingList ? 'border-sage text-sage' : 'border-dashed border-rust text-rust'
+              }`}
+            >
+              {addedToShoppingList ? <CheckIcon width={10} height={10} /> : <PlusIcon width={10} height={10} />}
+              {addedToShoppingList ? 'Hinzugefügt' : 'Zur Einkaufsliste'}
+            </button>
+          </div>
           <div className="hide-scrollbar flex gap-1.5 overflow-x-auto">
             {recipe.ingredients.map((ing) => (
               <div key={ing.id} className="flex-shrink-0 rounded-full border border-line bg-surface px-3 py-1.5 text-[11px] text-cream-soft shadow-card-sm">

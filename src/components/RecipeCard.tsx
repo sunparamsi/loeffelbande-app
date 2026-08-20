@@ -70,6 +70,7 @@ export default function RecipeCard({ recipe }: { recipe: Recipe }) {
             {t}
           </div>
         )}
+        {recipe.createdByName && <div className="mt-1 truncate text-[10px] text-cream-soft">von {recipe.createdByName}</div>}
       </div>
     </div>
   )

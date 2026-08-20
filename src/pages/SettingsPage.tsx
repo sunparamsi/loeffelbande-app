@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { repo } from '../data'
 import { useAuth } from '../lib/useAuth'
 import { useCategories } from '../lib/useCategories'
-import { getWakeLockPref, setWakeLockPref, getMemberAvatar, setMemberAvatar, memberAvatarKey } from '../lib/prefs'
+import { getWakeLockPref, setWakeLockPref, getFileImportPref, setFileImportPref, getMemberAvatar, setMemberAvatar, memberAvatarKey } from '../lib/prefs'
 import { fileToCompressedDataUrl, fileToDataUrl } from '../lib/image'
 import { GroupLabel, RowCard } from '../components/ui'
 import { XIcon, PlusIcon, CameraIcon, LogoutIcon } from '../icons'
@@ -29,6 +29,7 @@ export default function SettingsPage() {
   const [newCat, setNewCat] = useState('')
   const [pushOn, setPushOn] = useState(false)
   const [wakeLock, setWakeLock] = useState(getWakeLockPref())
+  const [fileImport, setFileImport] = useState(getFileImportPref())
   const [pushStatus, setPushStatus] = useState<string | null>(null)
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
@@ -106,6 +107,12 @@ export default function SettingsPage() {
     const next = !wakeLock
     setWakeLock(next)
     setWakeLockPref(next)
+  }
+
+  const toggleFileImport = () => {
+    const next = !fileImport
+    setFileImport(next)
+    setFileImportPref(next)
   }
 
   // Das Eingabefeld beim Bearbeiten hat autoFocus, wodurch der Browser die
@@ -299,6 +306,15 @@ export default function SettingsPage() {
           <div className="mt-0.5 text-[11px] text-cream-soft">Verhindert Sperrbildschirm während des Kochens</div>
         </div>
         <Toggle on={wakeLock} onClick={toggleWakeLock} />
+      </RowCard>
+
+      <GroupLabel>Rezept-Import</GroupLabel>
+      <RowCard>
+        <div>
+          <div>Aus Datei importieren</div>
+          <div className="mt-0.5 text-[11px] text-cream-soft">Zeigt bei "Neues Rezept" die Option, Rezepte aus einer JSON- oder CSV-Datei einzulesen (z. B. Export aus einer anderen Rezept-App)</div>
+        </div>
+        <Toggle on={fileImport} onClick={toggleFileImport} />
       </RowCard>
 
       <GroupLabel>Haushalt &amp; Modus</GroupLabel>

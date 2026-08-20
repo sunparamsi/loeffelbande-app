@@ -4,6 +4,8 @@ import { repo } from '../data'
 import type { Recipe } from '../db/types'
 import { timeLabel } from '../components/RecipeCard'
 import { PrimaryButton, OutlineButton } from '../components/ui'
+import { useAuth } from '../lib/useAuth'
+import { canEditRecipe } from '../lib/recipePermissions'
 import {
   ArrowLeftIcon,
   BookmarkIcon,
@@ -23,6 +25,7 @@ import type { Member } from '../data/repo'
 export default function RecipeDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { authState } = useAuth()
   const [recipe, setRecipe] = useState<Recipe | null>(null)
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [showPing, setShowPing] = useState(false)
@@ -100,20 +103,7 @@ export default function RecipeDetailPage() {
     }
   }
 
-  const shareLink = async () => {
-    if (repo.mode !== 'cloud') {
-      setStatus('Teilen-Links sind nur im Verbunden-Modus verfügbar.')
-      return
-    }
-    try {
-      const link = await repo.createShareLink(recipe.id)
-      const url = `${window.location.origin}/teilen/${link.token}`
-      await navigator.clipboard.writeText(url).catch(() => {})
-      setStatus(`Link kopiert: ${url}`)
-    } catch (e) {
-      setStatus(e instanceof Error ? e.message : 'Fehler beim Erstellen des Links.')
-    }
-  }
+  const canEdit = canEditRecipe(recipe, authState)
 
   const img = recipe.images[0]?.dataUrl
 
@@ -135,17 +125,20 @@ export default function RecipeDetailPage() {
         >
           <ArrowLeftIcon width={16} height={16} />
         </button>
-        <button
-          onClick={() => navigate(`/rezepte/${recipe.id}/bearbeiten`)}
-          className="absolute right-4 top-4 z-10 flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white/92 text-cream shadow-card-sm"
-        >
-          <EditIcon width={16} height={16} />
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => navigate(`/rezepte/${recipe.id}/bearbeiten`)}
+            className="absolute right-4 top-4 z-10 flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white/92 text-cream shadow-card-sm"
+          >
+            <EditIcon width={16} height={16} />
+          </button>
+        )}
         <div className="relative z-10 w-full px-[18px] pb-[26px]">
           <div className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: '#ffcfa8' }}>
             {[recipe.category, recipe.cuisine].filter(Boolean).join(' · ')}
           </div>
           <div className="mt-1.5 text-[25px] font-extrabold leading-tight tracking-tight text-white">{recipe.title}</div>
+          {recipe.createdByName && <div className="mt-1 text-[11px] font-semibold text-white/75">erstellt von {recipe.createdByName}</div>}
         </div>
       </div>
 
@@ -290,9 +283,6 @@ export default function RecipeDetailPage() {
         <div className="mt-3 flex gap-2">
           <OutlineButton className="flex-1" onClick={openPing}>
             <ShareIcon width={14} height={14} /> Markieren
-          </OutlineButton>
-          <OutlineButton className="flex-1" onClick={shareLink}>
-            <ShareIcon width={14} height={14} /> Link teilen
           </OutlineButton>
         </div>
         <PrimaryButton className="mt-2.5 w-full" onClick={() => navigate(`/rezepte/${recipe.id}/kochen`)}>

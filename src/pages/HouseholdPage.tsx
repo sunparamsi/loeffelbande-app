@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { repo } from '../data'
 import { useAuth } from '../lib/useAuth'
 import type { Member, Role } from '../data/repo'
+import ConfirmModal from '../components/ConfirmModal'
 
 const ROLE_LABEL: Record<Role, string> = { owner: 'Besitzer', editor: 'Bearbeiter', viewer: 'Betrachter' }
 const ROLE_CLASS: Record<Role, string> = {
@@ -14,6 +15,7 @@ export default function HouseholdPage() {
   const { authState } = useAuth()
   const [members, setMembers] = useState<Member[]>([])
   const [copied, setCopied] = useState(false)
+  const [memberToRemove, setMemberToRemove] = useState<Member | null>(null)
 
   const load = () => repo.listMembers().then(setMembers)
 
@@ -28,7 +30,7 @@ export default function HouseholdPage() {
           <h1 className="text-[21px] font-extrabold text-cream">Haushalt</h1>
         </div>
         <div className="mx-[18px] rounded-2xl border border-dashed border-line p-6 text-center text-[12.5px] text-cream-soft">
-          Du bist im Solo-Modus unterwegs – hier läuft alles nur lokal auf diesem Gerät. Um Rezepte, Vorrat und Einkaufsliste mit anderen zu teilen, richte den
+          Du bist im Solo-Modus unterwegs – hier läuft alles nur lokal auf diesem Gerät. Um Rezepte und Einkaufsliste mit anderen zu teilen, richte den
           Verbunden-Modus ein (siehe SETUP.md aus deiner Auslieferung).
         </div>
       </div>
@@ -43,9 +45,10 @@ export default function HouseholdPage() {
     load()
   }
 
-  const remove = async (m: Member) => {
-    if (!confirm(`${m.displayName} wirklich aus dem Haushalt entfernen?`)) return
-    await repo.removeMember(m.id)
+  const confirmRemove = async () => {
+    if (!memberToRemove) return
+    await repo.removeMember(memberToRemove.id)
+    setMemberToRemove(null)
     load()
   }
 
@@ -86,7 +89,7 @@ export default function HouseholdPage() {
                 <option value="editor">Bearbeiter</option>
                 <option value="owner">Besitzer</option>
               </select>
-              <button onClick={() => remove(m)} className="text-[11px] text-cream-soft">
+              <button onClick={() => setMemberToRemove(m)} className="text-[11px] text-cream-soft">
                 Entfernen
               </button>
             </div>
@@ -97,9 +100,21 @@ export default function HouseholdPage() {
       ))}
 
       <div className="mx-[18px] mt-6 rounded-2xl border border-line bg-surface p-4 text-[11.5px] leading-relaxed text-cream-soft shadow-card-sm">
-        <b className="text-cream">Rollen:</b> Betrachter können alles ansehen, aber nichts ändern. Bearbeiter dürfen Rezepte, Vorrat und Einkaufsliste bearbeiten. Der
-        Besitzer verwaltet zusätzlich die Mitgliederrollen.
+        <b className="text-cream">Rollen:</b> Betrachter können alles ansehen, aber nichts ändern. Bearbeiter dürfen Rezepte anlegen und die Einkaufsliste bearbeiten – ein
+        Rezept bearbeiten oder löschen dürfen sie aber nur, wenn sie es selbst angelegt haben. Der Besitzer darf zusätzlich jedes Rezept bearbeiten/löschen und verwaltet die
+        Mitgliederrollen.
       </div>
+
+      {memberToRemove && (
+        <ConfirmModal
+          title="Mitglied entfernen"
+          message={`${memberToRemove.displayName} wirklich aus dem Haushalt entfernen?`}
+          confirmLabel="Entfernen"
+          danger
+          onConfirm={confirmRemove}
+          onCancel={() => setMemberToRemove(null)}
+        />
+      )}
     </div>
   )
 }

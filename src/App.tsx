@@ -10,7 +10,6 @@ import RecipeDetailPage from './pages/RecipeDetailPage'
 import RecipeFormPage from './pages/RecipeFormPage'
 import NewRecipeChooserPage from './pages/NewRecipeChooserPage'
 import CookModePage from './pages/CookModePage'
-import PantryPage from './pages/PantryPage'
 import ShoppingListPage from './pages/ShoppingListPage'
 import ActivityPage from './pages/ActivityPage'
 import HouseholdPage from './pages/HouseholdPage'
@@ -88,7 +87,6 @@ export default function App() {
           <Route path="/rezepte/neu/formular" element={<RecipeFormPage mode="create" />} />
           <Route path="/rezepte/:id" element={<RecipeDetailPage />} />
           <Route path="/rezepte/:id/bearbeiten" element={<RecipeFormPage mode="edit" />} />
-          <Route path="/vorrat" element={<PantryPage />} />
           <Route path="/einkauf" element={<ShoppingListPage />} />
           <Route path="/aktivitaet" element={<ActivityPage />} />
           <Route path="/haushalt" element={<HouseholdPage />} />

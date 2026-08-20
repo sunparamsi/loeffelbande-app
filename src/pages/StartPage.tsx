@@ -3,31 +3,21 @@ import { useNavigate } from 'react-router-dom'
 import { repo } from '../data'
 import { useAuth } from '../lib/useAuth'
 import { currentSeason } from '../lib/season'
-import type { Recipe, PantryItem, ActivityPing } from '../db/types'
+import type { Recipe, ActivityPing } from '../db/types'
 import TopBar from '../components/TopBar'
 import RecipeCard, { HeroRecipeCard } from '../components/RecipeCard'
 import { PlusIcon, CartIcon } from '../icons'
-
-function daysUntil(dateStr: string): number {
-  const d = new Date(dateStr)
-  const now = new Date()
-  d.setHours(0, 0, 0, 0)
-  now.setHours(0, 0, 0, 0)
-  return Math.round((d.getTime() - now.getTime()) / 86400000)
-}
 
 export default function StartPage() {
   const navigate = useNavigate()
   const { authState } = useAuth()
   const [recipes, setRecipes] = useState<Recipe[]>([])
-  const [pantry, setPantry] = useState<PantryItem[]>([])
   const [openShopping, setOpenShopping] = useState(0)
   const [activity, setActivity] = useState<ActivityPing[]>([])
 
   useEffect(() => {
-    Promise.all([repo.listRecipes(), repo.listPantry(), repo.listShoppingList()]).then(([r, p, s]) => {
+    Promise.all([repo.listRecipes(), repo.listShoppingList()]).then(([r, s]) => {
       setRecipes(r)
-      setPantry(p)
       setOpenShopping(s.filter((i) => !i.checked).length)
     })
     if (repo.mode === 'cloud') {
@@ -44,10 +34,6 @@ export default function StartPage() {
   const featured = seasonal[0] ?? newest[0] ?? null
   const featuredIsSeasonal = !!seasonal[0]
   const gridRecipes = newest.filter((r) => r.id !== featured?.id).slice(0, 4)
-  const expiring = pantry
-    .filter((p) => p.expiryDate && daysUntil(p.expiryDate) <= 7)
-    .sort((a, b) => (a.expiryDate! < b.expiryDate! ? -1 : 1))
-    .slice(0, 4)
 
   const name = authState?.currentMemberName ?? 'Koch:in'
 
@@ -106,35 +92,16 @@ export default function StartPage() {
         </div>
       )}
 
-      {expiring.length > 0 && (
-        <>
-          <SectionHeader eyebrow="Läuft bald ab" seeAllLabel="Vorrat ansehen →" onSeeAll={() => navigate('/vorrat')} />
-          <div className="mb-6 overflow-hidden rounded-2xl border border-line bg-surface shadow-card-sm">
-            {expiring.map((p, i) => {
-              const d = daysUntil(p.expiryDate!)
-              return (
-                <div
-                  key={p.id}
-                  className={`flex items-center justify-between px-4 py-3 text-[13px] text-cream ${i < expiring.length - 1 ? 'border-b border-line' : ''}`}
-                >
-                  <div>
-                    {p.name} {p.quantity ? `· ${p.quantity} ${p.unit}` : ''}
-                  </div>
-                  <div className="text-[10.5px] font-bold" style={{ color: '#e05a4e' }}>
-                    {d <= 0 ? 'heute' : `in ${d} Tag${d === 1 ? '' : 'en'}`}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </>
-      )}
-
       {activity.length > 0 && (
         <>
           <SectionHeader eyebrow="Neueste Aktivität" onSeeAll={() => navigate('/aktivitaet')} />
           {activity.map((a) => (
-            <div key={a.id} className="flex gap-3 px-[18px] py-3">
+            <div
+              key={a.id}
+              role={a.recipeId ? 'button' : undefined}
+              onClick={a.recipeId ? () => navigate(`/rezepte/${a.recipeId}`) : undefined}
+              className={`flex gap-3 px-[18px] py-3 ${a.recipeId ? 'cursor-pointer' : ''}`}
+            >
               <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border-[1.5px] border-rust-solid bg-[color-mix(in_srgb,var(--color-rust)_14%,white)] text-[13px] font-bold text-rust">
                 {(a.fromMemberName ?? '?').charAt(0).toUpperCase()}
               </div>
