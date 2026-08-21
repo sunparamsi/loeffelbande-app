@@ -7,6 +7,7 @@ import { PrimaryButton, OutlineButton } from '../components/ui'
 import { useAuth } from '../lib/useAuth'
 import { canEditRecipe } from '../lib/recipePermissions'
 import { formatUnit } from '../lib/units'
+import { formatCategories } from '../lib/recipeCategories'
 import { isVideoMedia } from '../lib/media'
 import MediaLightbox from '../components/MediaLightbox'
 import {
@@ -155,7 +156,7 @@ export default function RecipeDetailPage() {
         )}
         <div className="relative z-10 w-full px-[18px] pb-[26px]" style={{ pointerEvents: 'none' }}>
           <div className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: '#ffcfa8' }}>
-            {[recipe.category, recipe.cuisine].filter(Boolean).join(' · ')}
+            {[formatCategories(recipe.categories), recipe.cuisine].filter(Boolean).join(' · ')}
           </div>
           <div className="mt-1.5 text-[25px] font-extrabold leading-tight tracking-tight text-white">{recipe.title}</div>
           {recipe.createdByName && <div className="mt-1 text-[11px] font-semibold text-white/75">erstellt von {recipe.createdByName}</div>}
@@ -232,6 +233,34 @@ export default function RecipeDetailPage() {
         })}
         {recipe.ingredients.length === 0 && <div className="text-[12.5px] text-cream-soft">Keine Zutaten hinterlegt.</div>}
 
+        {recipe.ingredients.length > 0 && (
+          <button
+            onClick={async () => {
+              const items = await repo.listShoppingList()
+              const existingNames = new Set(items.map((i) => i.name.toLowerCase()))
+              const added: string[] = []
+              for (const ing of recipe.ingredients) {
+                if (existingNames.has(ing.name.toLowerCase())) continue
+                await repo.saveShoppingItem({
+                  id: crypto.randomUUID(),
+                  name: ing.name,
+                  quantity: ing.quantity,
+                  unit: ing.unit,
+                  checked: false,
+                  fromRecipeIds: [recipe.id],
+                  addedAt: Date.now(),
+                })
+                added.push(ing.name.toLowerCase())
+              }
+              setShoppingNames((prev) => new Set([...prev, ...added]))
+              setStatus('Zutaten zur Einkaufsliste hinzugefügt.')
+            }}
+            className="mt-4 w-full rounded-full border-[1.5px] border-dashed border-rust py-3 text-center text-[12.5px] font-bold text-rust"
+          >
+            + Zutaten zur Einkaufsliste hinzufügen
+          </button>
+        )}
+
         <h2 className="mb-3 mt-[22px] text-[17px] font-extrabold text-cream">Zubereitung</h2>
         {recipe.steps.map((s, i) => (
           <div key={s.id} className="mb-2.5 flex gap-3 rounded-2xl bg-rust-solid px-4 py-3.5">
@@ -272,34 +301,6 @@ export default function RecipeDetailPage() {
               </a>
             ))}
           </>
-        )}
-
-        {recipe.ingredients.length > 0 && (
-          <button
-            onClick={async () => {
-              const items = await repo.listShoppingList()
-              const existingNames = new Set(items.map((i) => i.name.toLowerCase()))
-              const added: string[] = []
-              for (const ing of recipe.ingredients) {
-                if (existingNames.has(ing.name.toLowerCase())) continue
-                await repo.saveShoppingItem({
-                  id: crypto.randomUUID(),
-                  name: ing.name,
-                  quantity: ing.quantity,
-                  unit: ing.unit,
-                  checked: false,
-                  fromRecipeIds: [recipe.id],
-                  addedAt: Date.now(),
-                })
-                added.push(ing.name.toLowerCase())
-              }
-              setShoppingNames((prev) => new Set([...prev, ...added]))
-              setStatus('Zutaten zur Einkaufsliste hinzugefügt.')
-            }}
-            className="mt-6 w-full rounded-full border-[1.5px] border-dashed border-rust py-3 text-center text-[12.5px] font-bold text-rust"
-          >
-            + Zutaten zur Einkaufsliste hinzufügen
-          </button>
         )}
 
         <div className="mt-3 flex gap-2">

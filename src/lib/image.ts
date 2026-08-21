@@ -10,8 +10,11 @@ export function fileToDataUrl(file: File): Promise<string> {
 }
 
 /** Verkleinert ein Bild client-seitig, bevor es als Data-URL gespeichert wird
- * (wichtig, weil Bilder in der Datenbank/IndexedDB als Base64 abgelegt werden). */
-export function fileToCompressedDataUrl(file: File, maxDim = 1280, quality = 0.75): Promise<string> {
+ * (wichtig, weil Bilder in der Datenbank/IndexedDB als Base64 abgelegt werden).
+ * Nimmt bewusst ein `Blob` (nicht nur `File`) entgegen, damit auch z. B. per
+ * `fetch()` heruntergeladene Bilder (ohne Dateiname/File-Objekt) hier
+ * hindurch können - etwa beim Webseiten-Import in urlImport.ts. */
+export function fileToCompressedDataUrl(file: Blob, maxDim = 1280, quality = 0.75): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'))

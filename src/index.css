@@ -19,6 +19,50 @@
   --shadow-card-sm: 0 2px 8px rgba(40,28,16,0.05);
 }
 
+/* ---- Dunkelmodus ----
+   Löst dieselben Farb-Variablen aus dem @theme-Block oben neu auf - alle
+   Tailwind-Utilities (bg-bg, text-cream, border-line, …) referenzieren diese
+   Variablen zur Laufzeit, nicht als fest eingebrannten Wert, daher reicht ein
+   Überschreiben hier, ohne dass irgendeine Komponente selbst angepasst werden
+   müsste. Drei Zustände, siehe lib/theme.ts:
+   - "System" (kein data-theme-Attribut auf <html>): folgt ausschließlich der
+     Betriebssystem-Einstellung über prefers-color-scheme.
+   - Expliziter Umschalter in den Einstellungen setzt data-theme="dark" bzw.
+     "light" und gewinnt damit gezielt in beide Richtungen gegenüber der
+     OS-Einstellung. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg: #18140f;
+    --color-surface: #221c16;
+    --color-surface-2: #2b241b;
+    --color-cream: #f3e9dc;
+    --color-cream-soft: #a89681;
+    --color-rust: #f2814a;
+    --color-rust-solid: #f2814a;
+    --color-rust-dark: #c9622e;
+    --color-sage: #9dc17e;
+    --color-line: #362d22;
+
+    --shadow-card: 0 14px 30px rgba(0,0,0,0.45);
+    --shadow-card-sm: 0 2px 10px rgba(0,0,0,0.3);
+  }
+}
+:root[data-theme="dark"] {
+  --color-bg: #18140f;
+  --color-surface: #221c16;
+  --color-surface-2: #2b241b;
+  --color-cream: #f3e9dc;
+  --color-cream-soft: #a89681;
+  --color-rust: #f2814a;
+  --color-rust-solid: #f2814a;
+  --color-rust-dark: #c9622e;
+  --color-sage: #9dc17e;
+  --color-line: #362d22;
+
+  --shadow-card: 0 14px 30px rgba(0,0,0,0.45);
+  --shadow-card-sm: 0 2px 10px rgba(0,0,0,0.3);
+}
+
 html, body, #root {
   height: 100%;
 }
@@ -36,6 +80,20 @@ body {
 
 input, textarea, select, button {
   font-family: inherit;
+}
+
+/* iOS Safari zoomt beim Fokussieren automatisch in ein Eingabefeld hinein,
+   dessen (berechnete) Schriftgröße unter 16px liegt - und stellt diesen Zoom
+   nach dem Bestätigen/Verlassen des Felds nicht zuverlässig auf 100% zurück,
+   vor allem in der installierten PWA (ohne Browser-Chrome mit "fertig"-
+   Button). Mehrere Eingabefelder in der App nutzen aus Design-Gründen
+   kleinere Schriftgrößen (z. B. das Namensfeld in den Einstellungen oder das
+   "+Tag"-Feld) - deshalb hier pauschal eine Mindestschriftgröße erzwingen
+   (mit !important, da Tailwinds Klassen sonst wegen höherer Spezifität
+   gewinnen würden), statt jedes betroffene Feld einzeln zu suchen. Das
+   verhindert den Zoom von vornherein, statt ihn nachträglich zu reparieren. */
+input, textarea, select {
+  font-size: 16px !important;
 }
 
 ::-webkit-scrollbar {

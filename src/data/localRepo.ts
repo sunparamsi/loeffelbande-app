@@ -3,6 +3,7 @@ import type { Repository, AuthState, Member, JoinResult } from './repo'
 import type { Recipe, ShoppingListItem, ActivityPing, ShareLink, HouseholdSettings } from '../db/types'
 import { DEFAULT_CATEGORIES } from '../db/types'
 import { getSoloDisplayName, setSoloDisplayName } from '../lib/prefs'
+import { normalizeCategories } from '../lib/recipeCategories'
 
 const SETTINGS_KEY = 'meine-rezepte-settings-v1'
 const DEFAULT_SETTINGS: HouseholdSettings = { logoDataUrl: null, extraCategories: [], hiddenDefaultCategories: [] }
@@ -65,10 +66,12 @@ export class LocalRepository implements Repository {
   }
 
   async listRecipes(): Promise<Recipe[]> {
-    return localDb.recipes.orderBy('updatedAt').reverse().toArray()
+    const recipes = await localDb.recipes.orderBy('updatedAt').reverse().toArray()
+    return recipes.map((r) => ({ ...r, categories: normalizeCategories(r) }))
   }
   async getRecipe(id: string): Promise<Recipe | undefined> {
-    return localDb.recipes.get(id)
+    const r = await localDb.recipes.get(id)
+    return r ? { ...r, categories: normalizeCategories(r) } : undefined
   }
   async saveRecipe(recipe: Recipe): Promise<void> {
     await localDb.recipes.put(recipe)

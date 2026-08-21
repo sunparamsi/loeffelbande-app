@@ -9,6 +9,18 @@
     <meta name="theme-color" content="#f2814a" />
     <meta name="description" content="Rezepte inventarisieren, katalogisieren, Vorrat & Einkaufsliste verwalten" />
     <title>Löffelbande</title>
+    <!-- Setzt data-theme so früh wie möglich (vor jedem Rendern), damit bei
+         "Hell"/"Dunkel" (im Unterschied zu "System") kein falsches Thema kurz
+         aufblitzt, bevor main.tsx/theme.ts geladen sind. Muss synchron und vor
+         dem CSS-Stylesheet stehen, siehe lib/theme.ts für die Laufzeit-Variante. -->
+    <script>
+      (function () {
+        try {
+          var v = localStorage.getItem('loeffelbande-theme-pref')
+          if (v === 'light' || v === 'dark') document.documentElement.setAttribute('data-theme', v)
+        } catch (e) {}
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

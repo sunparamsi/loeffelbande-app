@@ -58,12 +58,12 @@ export default function RecipeListPage() {
   const filtered = useMemo(() => {
     let list = recipes
     if (filter === 'Favoriten') list = list.filter((r) => r.favorite)
-    else if (filter !== 'Alle') list = list.filter((r) => r.category === filter)
+    else if (filter !== 'Alle') list = list.filter((r) => r.categories.includes(filter))
     if (onlyMine) list = list.filter((r) => r.createdByUserId && r.createdByUserId === authState?.currentUserId)
     const q = query.trim().toLowerCase()
     if (q) {
       list = list.filter((r) => {
-        const hay = `${r.title} ${r.tags.join(' ')} ${r.ingredients.map((i) => i.name).join(' ')} ${r.category}`.toLowerCase()
+        const hay = `${r.title} ${r.tags.join(' ')} ${r.ingredients.map((i) => i.name).join(' ')} ${r.categories.join(' ')}`.toLowerCase()
         return hay.includes(q)
       })
     }

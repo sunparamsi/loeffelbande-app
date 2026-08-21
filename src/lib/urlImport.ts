@@ -1,6 +1,59 @@
 import type { Ingredient, Recipe, RecipeStep } from '../db/types'
 import { isJunkStepLine, stripInjectedContent } from './stepClean'
 import { parseIngredientLine } from './ingredientParse'
+import { fileToCompressedDataUrl } from './image'
+
+/**
+ * Zieht die Bild-URL aus dem schema.org "image"-Feld. Das Feld ist in freier
+ * Wildbahn uneinheitlich: mal ein einzelner String, mal ein ImageObject
+ * ({ "@type": "ImageObject", url: "..." }), mal ein Array aus einem der
+ * beiden - manchmal sogar verschachtelt. Ohne diese Fallunterscheidung landet
+ * bei einem ImageObject/Array-von-ImageObjects ein rohes JS-Objekt in
+ * String(...), also der Text "[object Object]" statt einer echten URL - das
+ * Bild erscheint dann im Formular als kaputtes Bild-Icon.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractImageUrl(image: any): string | undefined {
+  if (!image) return undefined
+  if (Array.isArray(image)) return extractImageUrl(image[0])
+  if (typeof image === 'string') return image
+  if (typeof image === 'object') {
+    if (typeof image.url === 'string') return image.url
+    if (typeof image['@id'] === 'string') return image['@id']
+  }
+  return undefined
+}
+
+/** Löst eine (ggf. relative oder protokoll-relative) Bild-URL gegen die
+ * Quellseiten-URL auf. Manche Seiten liefern nur einen Pfad statt einer
+ * vollständigen URL. */
+function resolveImageUrl(maybeRelative: string, pageUrl: string): string | undefined {
+  try {
+    return new URL(maybeRelative, pageUrl).href
+  } catch {
+    return undefined
+  }
+}
+
+/** Lädt das Bild herunter und speichert es als komprimierte Data-URL - genau
+ * wie bei manuell hochgeladenen Fotos (image.ts) - statt nur einen externen
+ * Link zu merken. So bleibt das importierte Rezept auch offline nutzbar und
+ * unabhängig davon, ob das Bild auf der Quellseite später verschwindet.
+ * Klappt der Download nicht (z. B. weil der Bild-Host kein CORS erlaubt),
+ * wird die aufgelöste URL direkt zurückgegeben - im Browser online zeigt ein
+ * <img src="..."> sie meist trotzdem an, offline dann eben nicht. Besser als
+ * ein von vornherein kaputtes Bild. */
+async function fetchImageAsDataUrl(imageUrl: string): Promise<string | undefined> {
+  try {
+    const res = await fetch(imageUrl, { mode: 'cors' })
+    if (!res.ok) return imageUrl
+    const blob = await res.blob()
+    if (!blob.type.startsWith('image/')) return imageUrl
+    return await fileToCompressedDataUrl(blob)
+  } catch {
+    return imageUrl
+  }
+}
 
 function isoDurationToMinutes(iso?: string): number | undefined {
   if (!iso) return undefined
@@ -101,7 +154,9 @@ export async function importFromUrl(url: string): Promise<Partial<Recipe> | null
     .filter((text) => text.trim().length > 0)
     .map((text) => ({ id: crypto.randomUUID(), text }))
 
-  const image = Array.isArray(n.image) ? n.image[0] : typeof n.image === 'object' ? n.image?.url : n.image
+  const rawImageUrl = extractImageUrl(n.image)
+  const resolvedImageUrl = rawImageUrl ? resolveImageUrl(rawImageUrl, url) : undefined
+  const imageDataUrl = resolvedImageUrl ? await fetchImageAsDataUrl(resolvedImageUrl) : undefined
 
   return {
     title: n.name ?? '',
@@ -109,11 +164,20 @@ export async function importFromUrl(url: string): Promise<Partial<Recipe> | null
     prepTimeMinutes: isoDurationToMinutes(n.prepTime),
     cookTimeMinutes: isoDurationToMinutes(n.cookTime),
     servings: n.recipeYield ? parseInt(String(n.recipeYield), 10) || undefined : undefined,
-    category: n.recipeCategory ? String(n.recipeCategory) : undefined,
+    // Explizit auf ['Hauptgericht'] zurückfallen statt "categories: undefined"
+    // zu liefern: beim Zusammenführen mit dem leeren Rezept-Grundgerüst in
+    // RecipeFormPage.tsx (`{ ...emptyRecipe(), ...prefill }`) würde ein
+    // vorhandener, aber undefined-wertiger "categories"-Schlüssel dessen
+    // Default (['Hauptgericht']) überschreiben - und da überall im Code von
+    // einem garantiert vorhandenen Array ausgegangen wird (.length, .includes,
+    // .join), stürzt das Formular dann beim Rendern ab. Kommt in der Praxis
+    // öfter vor, als man denkt: viele Rezeptseiten liefern gar kein
+    // "recipeCategory"-Feld.
+    categories: n.recipeCategory ? [String(n.recipeCategory)] : ['Hauptgericht'],
     tags: n.keywords ? String(n.keywords).split(',').map((s: string) => s.trim()).filter(Boolean) : [],
     ingredients,
     steps,
-    images: image ? [{ id: crypto.randomUUID(), dataUrl: String(image) }] : [],
+    images: imageDataUrl ? [{ id: crypto.randomUUID(), dataUrl: imageDataUrl }] : [],
     sourceUrl: url,
   }
 }

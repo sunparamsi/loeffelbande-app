@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { repo } from '../data'
 import { useAuth } from '../lib/useAuth'
 import { useCategories } from '../lib/useCategories'
-import { getWakeLockPref, setWakeLockPref, getFileImportPref, setFileImportPref, getMemberAvatar, setMemberAvatar, memberAvatarKey } from '../lib/prefs'
+import { getWakeLockPref, setWakeLockPref, getFileImportPref, setFileImportPref, getMemberAvatar, setMemberAvatar, memberAvatarKey, getThemePref, setThemePref, type ThemePref } from '../lib/prefs'
+import { applyThemePref } from '../lib/theme'
 import { fileToCompressedDataUrl, fileToDataUrl } from '../lib/image'
-import { GroupLabel, RowCard } from '../components/ui'
+import { GroupLabel, RowCard, Chip } from '../components/ui'
 import { XIcon, PlusIcon, CameraIcon, LogoutIcon } from '../icons'
 import AvatarCropModal from '../components/AvatarCropModal'
 
@@ -37,6 +38,38 @@ export default function SettingsPage() {
   const [savingName, setSavingName] = useState(false)
   const [avatarToCrop, setAvatarToCrop] = useState<string | null>(null)
   const scrollBeforeEditRef = useRef<number | null>(null)
+  const [exportStatus, setExportStatus] = useState<string | null>(null)
+  const [themePref, setThemePrefState] = useState<ThemePref>(getThemePref())
+
+  // Lädt alle Rezepte als eine JSON-Datei herunter - dient als Sicherung,
+  // insbesondere im Solo-Modus, wo die Rezepte nur lokal auf diesem Gerät
+  // liegen (z. B. iOS löscht die App-Daten oft, wenn man das Homescreen-Icon
+  // entfernt und neu hinzufügt). Das exportierte Format entspricht genau dem,
+  // was "Aus Datei importieren" (JSON) wieder einliest - also ein echtes
+  // Backup/Restore-Paar, keine Einbahnstraße.
+  const exportRecipes = async () => {
+    setExportStatus('Rezepte werden vorbereitet…')
+    try {
+      const recipes = await repo.listRecipes()
+      if (recipes.length === 0) {
+        setExportStatus('Keine Rezepte zum Sichern vorhanden.')
+        return
+      }
+      const blob = new Blob([JSON.stringify(recipes, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const dateLabel = new Date().toISOString().slice(0, 10)
+      a.href = url
+      a.download = `loeffelbande-rezepte-${dateLabel}.json`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      setExportStatus(`${recipes.length} Rezepte heruntergeladen.`)
+    } catch {
+      setExportStatus('Sicherung ist fehlgeschlagen. Bitte erneut versuchen.')
+    }
+  }
 
   const avatarKey = memberAvatarKey(authState?.household?.id, authState?.currentMemberName)
 
@@ -101,6 +134,12 @@ export default function SettingsPage() {
       if (res.ok) setPushOn(true)
       else setPushStatus(res.error)
     }
+  }
+
+  const chooseTheme = (pref: ThemePref) => {
+    setThemePrefState(pref)
+    setThemePref(pref)
+    applyThemePref()
   }
 
   const toggleWakeLock = () => {
@@ -175,6 +214,22 @@ export default function SettingsPage() {
         <h1 className="text-[21px] font-extrabold text-cream">Einstellungen</h1>
       </div>
 
+      <GroupLabel>Erscheinungsbild</GroupLabel>
+      <div className="mx-[18px] mb-1 flex gap-2">
+        <Chip selected={themePref === 'system'} onClick={() => chooseTheme('system')}>
+          System
+        </Chip>
+        <Chip selected={themePref === 'light'} onClick={() => chooseTheme('light')}>
+          Hell
+        </Chip>
+        <Chip selected={themePref === 'dark'} onClick={() => chooseTheme('dark')}>
+          Dunkel
+        </Chip>
+      </div>
+      <div className="mx-[18px] mb-1 pb-2 text-[11px] text-cream-soft">
+        "System" folgt automatisch der Einstellung deines Geräts.
+      </div>
+
       <GroupLabel>App-Logo</GroupLabel>
       <RowCard>
         <div className="flex items-center gap-3">
@@ -244,7 +299,7 @@ export default function SettingsPage() {
           {avatar ? (
             <img src={avatar} className="h-11 w-11 rounded-full border-2 border-rust object-cover" alt="Profilbild" />
           ) : (
-            <div className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-rust bg-[color-mix(in_srgb,var(--color-rust)_14%,white)] text-sm font-bold text-rust">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-rust bg-[color-mix(in_srgb,var(--color-rust)_14%,var(--color-surface))] text-sm font-bold text-rust">
               {(authState?.currentMemberName ?? '?').charAt(0).toUpperCase()}
             </div>
           )}
@@ -316,6 +371,19 @@ export default function SettingsPage() {
         </div>
         <Toggle on={fileImport} onClick={toggleFileImport} />
       </RowCard>
+
+      <GroupLabel>Sicherung</GroupLabel>
+      <RowCard onClick={exportRecipes}>
+        <div>
+          <div>Alle Rezepte als Datei sichern</div>
+          <div className="mt-0.5 text-[11px] text-cream-soft">
+            {repo.mode === 'cloud'
+              ? 'Lädt alle Rezepte als Datei herunter, z. B. als zusätzliche Sicherung.'
+              : 'Im Solo-Modus liegen deine Rezepte nur auf diesem Gerät. Lädt sie als Datei herunter (später über "Aus Datei importieren" wiederherstellbar) – z. B. bevor du das App-Icon vom Homescreen entfernst, da dabei auf dem iPhone alle Daten der App verloren gehen können.'}
+          </div>
+        </div>
+      </RowCard>
+      {exportStatus && <div className="mx-[18px] mb-2 text-[11px] text-cream-soft">{exportStatus}</div>}
 
       <GroupLabel>Haushalt &amp; Modus</GroupLabel>
       <RowCard>

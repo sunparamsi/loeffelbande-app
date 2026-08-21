@@ -27,13 +27,21 @@ export default function StartPage() {
 
   const season = currentSeason()
   const seasonal = recipes.filter((r) => {
-    const hay = `${r.title} ${r.category} ${r.tags.join(' ')}`.toLowerCase()
+    const hay = `${r.title} ${r.categories.join(' ')} ${r.tags.join(' ')}`.toLowerCase()
     return season.keywords.some((k) => hay.includes(k))
   })
   const newest = [...recipes].sort((a, b) => b.createdAt - a.createdAt)
   const featured = seasonal[0] ?? newest[0] ?? null
   const featuredIsSeasonal = !!seasonal[0]
-  const gridRecipes = newest.filter((r) => r.id !== featured?.id).slice(0, 4)
+  // Bei mehreren saisonalen Treffern wird unten eine ganze Reihe (max. 5)
+  // gezeigt statt nur der einen "featured"-Karte - diese müssen dann auch
+  // alle aus "Neueste Rezepte" raus, sonst tauchen sie doppelt auf.
+  const featuredIds = new Set(featuredIsSeasonal && seasonal.length > 1 ? seasonal.slice(0, 5).map((r) => r.id) : featured ? [featured.id] : [])
+  const gridRecipes = newest.filter((r) => !featuredIds.has(r.id)).slice(0, 2)
+  // Vom aktuell angemeldeten Mitglied selbst erstellte Rezepte - nur relevant
+  // im Haushalt-/Cloud-Modus mit mehreren Mitgliedern (im lokalen Solo-Modus
+  // gibt es keine currentUserId, die Section bleibt dann einfach leer/aus).
+  const myRecipes = authState?.currentUserId ? newest.filter((r) => r.createdByUserId === authState.currentUserId).slice(0, 4) : []
 
   const name = authState?.currentMemberName ?? 'Koch:in'
 
@@ -69,9 +77,22 @@ export default function StartPage() {
       {featured && (
         <>
           <SectionHeader eyebrow={featuredIsSeasonal ? `Passend zum ${season.label}` : 'Für dich entdeckt'} onSeeAll={() => navigate('/rezepte')} />
-          <div className="mb-6 px-[18px]">
-            <HeroRecipeCard recipe={featured} badge={featuredIsSeasonal ? 'Saisonal' : undefined} />
-          </div>
+          {featuredIsSeasonal && seasonal.length > 1 ? (
+            // Mehrere saisonal passende Rezepte -> durchslidebare Reihe statt
+            // nur einer einzelnen Karte (auf maximal 5 begrenzt, damit die
+            // Reihe nicht ausufert).
+            <div className="hide-scrollbar mb-6 flex snap-x snap-mandatory gap-3 overflow-x-auto px-[18px] pb-1">
+              {seasonal.slice(0, 5).map((r) => (
+                <div key={r.id} className="w-[85%] flex-shrink-0 snap-start">
+                  <HeroRecipeCard recipe={r} badge="Saisonal" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mb-6 px-[18px]">
+              <HeroRecipeCard recipe={featured} badge={featuredIsSeasonal ? 'Saisonal' : undefined} />
+            </div>
+          )}
         </>
       )}
 
@@ -80,6 +101,17 @@ export default function StartPage() {
           <SectionHeader eyebrow="Neueste Rezepte" onSeeAll={() => navigate('/rezepte')} />
           <div className="grid grid-cols-2 gap-3 px-[18px] pb-6">
             {gridRecipes.map((r) => (
+              <RecipeCard key={r.id} recipe={r} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {myRecipes.length > 0 && (
+        <>
+          <SectionHeader eyebrow="Deine Rezepte" onSeeAll={() => navigate('/rezepte')} />
+          <div className="grid grid-cols-2 gap-3 px-[18px] pb-6">
+            {myRecipes.map((r) => (
               <RecipeCard key={r.id} recipe={r} />
             ))}
           </div>
@@ -102,7 +134,7 @@ export default function StartPage() {
               onClick={a.recipeId ? () => navigate(`/rezepte/${a.recipeId}`) : undefined}
               className={`flex gap-3 px-[18px] py-3 ${a.recipeId ? 'cursor-pointer' : ''}`}
             >
-              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border-[1.5px] border-rust-solid bg-[color-mix(in_srgb,var(--color-rust)_14%,white)] text-[13px] font-bold text-rust">
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border-[1.5px] border-rust-solid bg-[color-mix(in_srgb,var(--color-rust)_14%,var(--color-bg))] text-[13px] font-bold text-rust">
                 {(a.fromMemberName ?? '?').charAt(0).toUpperCase()}
               </div>
               <div className="text-[13px] leading-relaxed text-cream">
@@ -121,6 +153,14 @@ export default function StartPage() {
           ))}
         </>
       )}
+
+      <button
+        onClick={() => navigate('/rezepte/neu')}
+        aria-label="Neues Rezept"
+        className="fixed bottom-[92px] right-5 flex h-[52px] w-[52px] items-center justify-center rounded-[17px] bg-rust-solid text-white shadow-[0_12px_26px_rgba(242,129,74,0.45)]"
+      >
+        <PlusIcon width={22} height={22} />
+      </button>
     </div>
   )
 }

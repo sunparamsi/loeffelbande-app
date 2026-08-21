@@ -211,3 +211,20 @@ function looksLikeTitle(line: string): boolean {
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
+
+/** Manche PDFs (z. B. Screenshot-Exporte aus anderen Rezept-Apps) tragen den
+ * Rezeptnamen NIRGENDS als sichtbaren Text auf der Seite - der Titel steht
+ * dort nur "drumherum" (App-Titelleiste), die beim Export nicht mitgedruckt
+ * wird. In diesem Fall liefert parseFreeText() bewusst keinen Titel (siehe
+ * looksLikeTitle). Als besserer Ausgangspunkt als ein leeres Feld dient dann
+ * der Dateiname, der den Rezeptnamen oft trägt (z. B. "Açorda Alentejana.pdf").
+ * Rein generische Kamera-/Scan-Dateinamen (IMG_1234, Scan 2024-...) liefern
+ * dabei bewusst keinen Vorschlag, da daraus kein sinnvoller Titel würde. */
+export function titleFromFilename(fileName: string): string {
+  const withoutExt = fileName.replace(/\.[a-z0-9]+$/i, '')
+  const cleaned = withoutExt.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!cleaned) return ''
+  if (/^(img|dsc|scan|dokument|document|pdf|datei|file)[\s_]?\d*$/i.test(cleaned)) return ''
+  if (/^\d+$/.test(cleaned)) return ''
+  return cleaned
+}

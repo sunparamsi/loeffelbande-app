@@ -19,7 +19,7 @@ const BUBBLES = [
 
 export default function SplashScreen({ exiting }: { exiting: boolean }) {
   return (
-    <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 bg-white ${exiting ? 'splash-exit' : ''}`}>
+    <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 bg-bg ${exiting ? 'splash-exit' : ''}`}>
       <div
         className="splash-mark relative w-[82vw] max-w-[420px]"
         style={{ aspectRatio: '2200 / 1721', filter: 'drop-shadow(0 18px 34px rgba(0,0,0,0.22))' }}

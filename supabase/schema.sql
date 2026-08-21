@@ -31,7 +31,7 @@ create table if not exists recipes (
   household_id uuid not null references households(id) on delete cascade,
   title text not null,
   description text,
-  category text not null default 'Sonstiges',
+  category text not null default 'Hauptgericht',
   cuisine text,
   tags text[] not null default '{}',
   prep_time_minutes int,
@@ -56,6 +56,14 @@ create table if not exists recipes (
 -- sie fehlt (bei einer frisch erstellten Tabelle über CREATE TABLE oben ist
 -- das ein No-op).
 alter table recipes add column if not exists created_by_name text;
+
+-- Mehrfach-Kategorien: "categories" (Array) ist die eigentliche Quelle,
+-- "category" (einzelner String) bleibt zusätzlich bestehen (rein für
+-- Abwärtskompatibilität, wird vom Client bei jedem Speichern automatisch mit
+-- der ersten Kategorie aus "categories" mitgepflegt). Bestehende Zeilen
+-- einmalig aus der alten Spalte befüllen.
+alter table recipes add column if not exists categories text[] not null default '{}';
+update recipes set categories = array[category] where categories = '{}' and category is not null and category <> '';
 
 create table if not exists shopping_list_items (
   id uuid primary key default gen_random_uuid(),

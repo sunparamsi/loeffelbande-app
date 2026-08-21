@@ -4,6 +4,7 @@ import { getSharedRecipePublic } from '../data'
 import type { Recipe } from '../db/types'
 import { timeLabel } from '../components/RecipeCard'
 import { Chip } from '../components/ui'
+import { formatCategories } from '../lib/recipeCategories'
 
 export default function SharedRecipePage() {
   const { token } = useParams()
@@ -39,7 +40,7 @@ export default function SharedRecipePage() {
       >
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(10,7,5,0.92), transparent 75%)' }} />
         <div className="relative z-10 w-full px-[18px] pb-5 pt-5">
-          <div className="text-[10.5px] font-bold uppercase tracking-wider text-rust">{[recipe.category, recipe.cuisine].filter(Boolean).join(' · ')}</div>
+          <div className="text-[10.5px] font-bold uppercase tracking-wider text-rust">{[formatCategories(recipe.categories), recipe.cuisine].filter(Boolean).join(' · ')}</div>
           <div className="mt-1.5 text-[26px] font-extrabold leading-tight text-cream">{recipe.title}</div>
         </div>
       </div>

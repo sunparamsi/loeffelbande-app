@@ -86,17 +86,31 @@ function canvasToImageFile(canvas: HTMLCanvasElement, name: string): Promise<Fil
  * Fantasie-Titel und Fantasie-erster-Schritt im importierten Rezept.
  *
  * Heuristik, komplett ohne PDF-Strukturanalyse (robust gegenüber beliebigen
- * Erzeuger-Eigenheiten): Echte Fotos haben deutlich mehr Farbsättigung als
- * Text auf flächigem Hintergrund. Wir messen pro Bildzeile die durchschnitt-
- * liche Sättigung von oben nach unten und suchen den Übergang von "farbig"
- * (Foto) zu durchgehend "flach" (Text/UI) – das ist die Unterkante des
- * Titelbilds. Nur wenn dieser Übergang in einem plausiblen Bereich liegt
- * (nicht direkt am Anfang, nicht fast die ganze Seite), wird ein Titelbild
- * angenommen. Danach wird zusätzlich innerhalb dieser Zeilen links/rechts
- * nach demselben Prinzip geschnitten – manche Quellen zentrieren das Foto in
- * einem breiteren, einfarbigen (z. B. schwarzen) Rahmen; ohne diesen zweiten
- * Schnitt würde dieser Rahmen als hässlicher Rand mit ins Titelbild
- * übernommen.
+ * Erzeuger-Eigenheiten): Echte Fotos haben deutlich mehr Farbigkeit als Text
+ * auf flächigem Hintergrund. Gemessen wird das über die "Chroma" jedes
+ * Pixels (der Abstand zwischen dem hellsten und dunkelsten Farbkanal, absolut
+ * auf einer 0–1-Skala – NICHT relativ zur Helligkeit). Das ist bewusst keine
+ * echte HSV-Sättigung (die relativ zur Helligkeit rechnet): bei relativer
+ * Sättigung wirken fast schwarze Pixel (z. B. ein dunkler App-Hintergrund
+ * unterhalb des Fotos) durch das Teilen durch einen sehr kleinen Hellwert
+ * numerisch instabil und erscheinen fälschlich "hochgesättigt", obwohl sie
+ * für das Auge klar neutral/farblos sind. Mit absoluter Chroma bleiben sowohl
+ * sehr helle (weiße Tischdecke) als auch sehr dunkle (schwarzer Hintergrund)
+ * neutrale Flächen korrekt niedrig.
+ *
+ * Wir messen pro Bildzeile die durchschnittliche Chroma von oben nach unten.
+ * Damit ein von Natur aus eher blasses/neutrales Element innerhalb des Fotos
+ * selbst (z. B. eine helle Tischdecke oder ein weißer Teller am oberen Rand
+ * des Fotos) nicht fälschlich schon als Fotoende gilt, wird zuerst gesucht,
+ * wo das Foto überhaupt anfängt (erster nachhaltig farbiger Bereich) – erst
+ * ab dort wird nach dem Übergang zu durchgehend "flach" (Text/UI) gesucht,
+ * das ist dann die Unterkante des Titelbilds. Nur wenn dieser Übergang in
+ * einem plausiblen Bereich liegt (nicht direkt am Anfang, nicht fast die
+ * ganze Seite), wird ein Titelbild angenommen. Danach wird zusätzlich
+ * innerhalb dieser Zeilen links/rechts nach demselben Prinzip geschnitten –
+ * manche Quellen zentrieren das Foto in einem breiteren, einfarbigen (z. B.
+ * schwarzen) Rahmen; ohne diesen zweiten Schnitt würde dieser Rahmen als
+ * hässlicher Rand mit ins Titelbild übernommen.
  */
 function detectPhotoBounds(canvas: HTMLCanvasElement): { x0: number; y0: number; x1: number; y1: number } | null {
   const ctx = canvas.getContext('2d')
@@ -104,7 +118,7 @@ function detectPhotoBounds(canvas: HTMLCanvasElement): { x0: number; y0: number;
   const { width, height } = canvas
   if (width === 0 || height === 0) return null
 
-  const SAT_THRESHOLD = 0.09
+  const CHROMA_THRESHOLD = 0.09
   const SUSTAIN_ROWS = 24
   const SUSTAIN_COLS = 16
   const SAMPLE_STEP = 4
@@ -117,31 +131,49 @@ function detectPhotoBounds(canvas: HTMLCanvasElement): { x0: number; y0: number;
   }
   const { data } = imageData
 
-  const satAt = (x: number, y: number): number => {
+  const chromaAt = (x: number, y: number): number => {
     const i = (y * width + x) * 4
     const r = data[i]
     const g = data[i + 1]
     const b = data[i + 2]
-    const max = Math.max(r, g, b)
-    const min = Math.min(r, g, b)
-    return max > 0 ? (max - min) / max : 0
+    return (Math.max(r, g, b) - Math.min(r, g, b)) / 255
   }
 
-  const rowSat = new Float32Array(height)
+  const rowChroma = new Float32Array(height)
   for (let y = 0; y < height; y++) {
     let sum = 0
     let n = 0
     for (let x = 0; x < width; x += SAMPLE_STEP) {
-      sum += satAt(x, y)
+      sum += chromaAt(x, y)
       n++
     }
-    rowSat[y] = n > 0 ? sum / n : 0
+    rowChroma[y] = n > 0 ? sum / n : 0
   }
 
+  // Erst den Fotoanfang suchen (erster nachhaltig farbiger Bereich) - siehe
+  // Kommentar oben. Gibt es nirgends auf der Seite so einen Bereich, ist da
+  // schlicht kein Foto zu finden.
+  let y0 = -1
+  let highStreak = 0
+  for (let y = 0; y < height; y++) {
+    if (rowChroma[y] >= CHROMA_THRESHOLD) {
+      highStreak++
+      if (highStreak === SUSTAIN_ROWS) {
+        y0 = y - SUSTAIN_ROWS + 1
+        break
+      }
+    } else {
+      highStreak = 0
+    }
+  }
+  if (y0 < 0) return null
+
+  // Ab dem Fotoanfang nach dem Übergang zurück zu durchgehend "flach" suchen
+  // - das ist die Unterkante des Titelbilds.
   let lowStreak = 0
   let transitionY = -1
-  for (let y = 0; y < height; y++) {
-    if (rowSat[y] < SAT_THRESHOLD) {
+  for (let y = y0; y < height; y++) {
+    if (rowChroma[y] < CHROMA_THRESHOLD) {
       lowStreak++
       if (lowStreak === SUSTAIN_ROWS) {
         transitionY = y - SUSTAIN_ROWS + 1
@@ -160,42 +192,28 @@ function detectPhotoBounds(canvas: HTMLCanvasElement): { x0: number; y0: number;
   // nichts zum Erkennen übrig.
   if (heightFrac < 0.05 || heightFrac > 0.85) return null
 
-  // Auch ganz oben kann ein schmaler einfarbiger Rand sitzen (z. B. ein
-  // schwarzer Steg über dem eigentlichen Foto) – von oben nach dem ersten
-  // sustained-farbigen Bereich suchen, statt y0 einfach bei 0 zu belassen.
-  let y0 = 0
-  let ySreak = 0
-  for (let y = 0; y < transitionY; y++) {
-    if (rowSat[y] >= SAT_THRESHOLD) {
-      ySreak++
-      if (ySreak === SUSTAIN_ROWS) {
-        y0 = y - SUSTAIN_ROWS + 1
-        break
-      }
-    } else {
-      ySreak = 0
-    }
-  }
-  if (transitionY - y0 < height * 0.03) y0 = 0
+  // Liegt der gefundene Fotoanfang ohnehin ganz oben (kein nennenswerter
+  // blasser Rand davor), lohnt sich der Zuschnitt nicht - dann lieber ab 0.
+  if (y0 < height * 0.03) y0 = 0
 
   // Links/rechts innerhalb der erkannten Fotozeilen (y0..transitionY) nach
-  // demselben Sättigungs-Prinzip einengen, um einfarbige Ränder (z. B.
-  // schwarze Balken links/rechts) herauszuschneiden.
-  const colSat = new Float32Array(width)
+  // demselben Prinzip einengen, um einfarbige Ränder (z. B. schwarze Balken
+  // links/rechts) herauszuschneiden.
+  const colChroma = new Float32Array(width)
   for (let x = 0; x < width; x++) {
     let sum = 0
     let n = 0
     for (let y = y0; y < transitionY; y += SAMPLE_STEP) {
-      sum += satAt(x, y)
+      sum += chromaAt(x, y)
       n++
     }
-    colSat[x] = n > 0 ? sum / n : 0
+    colChroma[x] = n > 0 ? sum / n : 0
   }
 
   let x0 = 0
   let streak = 0
   for (let x = 0; x < width; x++) {
-    if (colSat[x] >= SAT_THRESHOLD) {
+    if (colChroma[x] >= CHROMA_THRESHOLD) {
       streak++
       if (streak === SUSTAIN_COLS) {
         x0 = x - SUSTAIN_COLS + 1
@@ -209,7 +227,7 @@ function detectPhotoBounds(canvas: HTMLCanvasElement): { x0: number; y0: number;
   let x1 = width
   streak = 0
   for (let x = width - 1; x >= 0; x--) {
-    if (colSat[x] >= SAT_THRESHOLD) {
+    if (colChroma[x] >= CHROMA_THRESHOLD) {
       streak++
       if (streak === SUSTAIN_COLS) {
         x1 = x + SUSTAIN_COLS

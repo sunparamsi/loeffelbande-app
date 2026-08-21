@@ -35,7 +35,12 @@ export interface Recipe {
   id: string
   title: string
   description?: string
-  category: string
+  /** Mehrere Kategorien pro Rezept möglich (z. B. "Hauptgericht" + "Suppe").
+   * Ältere, lokal oder in Supabase gespeicherte Rezepte haben ggf. noch das
+   * alte einzelne "category"-Feld statt "categories" - siehe
+   * normalizeCategories() in lib/recipeCategories.ts, das an den
+   * Lesestellen (localRepo/supabaseRepo) genau das abfängt. */
+  categories: string[]
   cuisine?: string
   tags: string[]
   prepTimeMinutes?: number
@@ -110,5 +115,4 @@ export const DEFAULT_CATEGORIES = [
   'Getränk',
   'Frühstück',
   'Snack',
-  'Sonstiges',
 ]

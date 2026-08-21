@@ -5,7 +5,7 @@
 export const UNIT_WORDS = [
   // Deutsch (inkl. gängiger Pluralformen, da Freitext/OCR beide Formen liefert)
   'g', 'kg', 'ml', 'l', 'el', 'tl', 'stk', 'stück', 'stücke', 'prise', 'prisen', 'bund', 'bunde', 'dose', 'dosen', 'zehe', 'zehen',
-  'scheibe', 'scheiben', 'päckchen', 'msp', 'tasse', 'tassen', 'becher',
+  'scheibe', 'scheiben', 'päckchen', 'msp', 'tasse', 'tassen', 'becher', 'pck', 'pck.', 'packung', 'packungen',
   // Englisch
   'cup', 'cups', 'oz', 'ounce', 'ounces', 'lb', 'lbs', 'pound', 'pounds', 'tbsp', 'tbsp.', 'tablespoon', 'tablespoons', 'tsp', 'tsp.', 'teaspoon', 'teaspoons',
   'clove', 'cloves', 'can', 'cans', 'package', 'packages', 'pkg', 'slice', 'slices', 'pinch', 'bunch', 'stick', 'sticks', 'quart', 'quarts', 'pint', 'pints', 'gallon', 'gallons',
@@ -59,10 +59,21 @@ function round1(n: number): number {
  * älteren Imports mit "el"/"tl") korrekt dargestellt werden. */
 const UPPERCASE_UNITS: Record<string, string> = { el: 'EL', tl: 'TL' }
 
+/** Einheiten, die auf eine ausgeschriebene Form normalisiert werden, damit
+ * unterschiedliche Schreibweisen aus Imports/Freitext einheitlich dargestellt
+ * werden (z. B. die gängige Abkürzung "Pck"/"Pck." für "Packung"). */
+const EXPAND_UNITS: Record<string, string> = { pck: 'Packung', 'pck.': 'Packung', packung: 'Packung', packungen: 'Packung' }
+
+/** Einheiten, die trotz kleingeschriebener Speicherung mit ihrer natürlichen
+ * (groß geschriebenen) Form angezeigt werden sollen, z. B. "Prise"/"Prisen" -
+ * anders als bei UPPERCASE_UNITS keine reine Abkürzung, sondern ein normales
+ * Substantiv, das nur den ersten Buchstaben groß schreibt. */
+const TITLECASE_UNITS: Record<string, string> = { prise: 'Prise', prisen: 'Prisen' }
+
 export function formatUnit(unit: string): string {
   const trimmed = unit.trim()
-  const upper = UPPERCASE_UNITS[trimmed.toLowerCase()]
-  return upper ?? trimmed
+  const lower = trimmed.toLowerCase()
+  return UPPERCASE_UNITS[lower] ?? EXPAND_UNITS[lower] ?? TITLECASE_UNITS[lower] ?? trimmed
 }
 
 /** Erkennt eine Einheit robuster als ein reiner UNIT_WORDS-Abgleich, indem

@@ -2,6 +2,7 @@ import { supabase } from './supabaseClient'
 import type { Repository, AuthState, Member, Role, JoinResult, HouseholdInfo } from './repo'
 import type { Recipe, ShoppingListItem, ActivityPing, ShareLink, HouseholdSettings } from '../db/types'
 import { DEFAULT_CATEGORIES } from '../db/types'
+import { normalizeCategories } from '../lib/recipeCategories'
 
 function slugify(name: string): string {
   return name
@@ -515,7 +516,7 @@ function rowToRecipe(row: any): Recipe {
     id: row.id,
     title: row.title,
     description: row.description ?? undefined,
-    category: row.category,
+    categories: normalizeCategories(row),
     cuisine: row.cuisine ?? undefined,
     tags: row.tags ?? [],
     prepTimeMinutes: row.prep_time_minutes ?? undefined,
@@ -541,7 +542,11 @@ function recipeToRow(r: Recipe, householdId: string) {
     household_id: householdId,
     title: r.title,
     description: r.description ?? null,
-    category: r.category,
+    categories: r.categories,
+    // Weiterhin mitschreiben (altes, noch NOT NULL-Feld) - rein für
+    // Abwärtskompatibilität, falls irgendwo (noch) direkt darauf zugegriffen
+    // wird; "categories" ist die eigentliche Quelle.
+    category: r.categories[0] ?? '',
     cuisine: r.cuisine ?? null,
     tags: r.tags,
     prep_time_minutes: r.prepTimeMinutes ?? null,

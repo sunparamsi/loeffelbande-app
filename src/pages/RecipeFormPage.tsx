@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { repo } from '../data'
 import type { Recipe, Ingredient, RecipeLink, RecipeImage, Difficulty } from '../db/types'
@@ -12,6 +12,8 @@ import { fileToVideoDataUrl, isVideoMedia } from '../lib/media'
 import { translateTexts } from '../lib/translate'
 import { canEditRecipe } from '../lib/recipePermissions'
 import { formatUnit } from '../lib/units'
+import { suggestDietTags } from '../lib/dietTags'
+import { suggestExistingTags } from '../lib/tagSuggest'
 import { VideoIcon } from '../icons'
 
 function emptyRecipe(): Recipe {
@@ -20,7 +22,7 @@ function emptyRecipe(): Recipe {
     id: crypto.randomUUID(),
     title: '',
     description: '',
-    category: 'Hauptgericht',
+    categories: ['Hauptgericht'],
     cuisine: '',
     tags: [],
     ingredients: [],
@@ -53,6 +55,7 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const [titleMissing, setTitleMissing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [mediaError, setMediaError] = useState<string | null>(null)
+  const [otherRecipes, setOtherRecipes] = useState<Recipe[]>([])
 
   useEffect(() => {
     if (mode === 'edit' && id) {
@@ -62,6 +65,13 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
       })
     } else if (mode === 'create' && location.state?.prefill) {
       const base: Recipe = { ...emptyRecipe(), ...location.state!.prefill }
+      // Anhand der importierten Zutaten schon mal einen Ernährungs-Tag
+      // vorschlagen ("Vegan"/"Vegetarisch") - nur wenn noch keine Tags
+      // gesetzt sind, damit ein Vorschlag nie manuell gesetzte Tags
+      // überschreibt. Reiner Vorschlag zum Prüfen, siehe dietTags.ts.
+      if (base.tags.length === 0 && base.ingredients.length > 0) {
+        base.tags = suggestDietTags(base.ingredients)
+      }
       setRecipe(base)
       // Importierte Rezepte (Foto/PDF/Webseite/Social) sind oft englisch –
       // automatisch ins Deutsche übersetzen, statt darauf zu warten, dass
@@ -73,6 +83,18 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, id])
+
+  // Für Tag-Vorschläge (siehe unten) einmal alle anderen Rezepte laden - das
+  // aktuell bearbeitete Rezept selbst wird ausgeschlossen, damit es beim
+  // Bearbeiten nicht immer 1:1 (und damit trivial) auf sich selbst matcht.
+  useEffect(() => {
+    repo.listRecipes().then((all) => setOtherRecipes(all.filter((r) => r.id !== id)))
+  }, [id])
+
+  const suggestedTags = useMemo(
+    () => suggestExistingTags(recipe.ingredients, otherRecipes, recipe.tags),
+    [recipe.ingredients, otherRecipes, recipe.tags],
+  )
 
   const update = <K extends keyof Recipe>(key: K, value: Recipe[K]) => setRecipe((r) => ({ ...r, [key]: value }))
 
@@ -293,10 +315,18 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
       </div>
 
       <div className="px-[18px] pt-4">
-        <FormLabel>Kategorie</FormLabel>
+        <FormLabel>Kategorie{recipe.categories.length > 1 ? ` (${recipe.categories.length} ausgewählt)` : ''}</FormLabel>
         <div className="flex flex-wrap gap-2">
           {categories.map((c) => (
-            <Chip key={c} selected={recipe.category === c} onClick={() => update('category', c)}>
+            <Chip
+              key={c}
+              selected={recipe.categories.includes(c)}
+              onClick={() => {
+                const has = recipe.categories.includes(c)
+                if (has && recipe.categories.length === 1) return // mindestens eine Kategorie muss bestehen bleiben
+                update('categories', has ? recipe.categories.filter((x) => x !== c) : [...recipe.categories, c])
+              }}
+            >
               {c}
             </Chip>
           ))}
@@ -308,7 +338,7 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
               onKeyDown={async (e) => {
                 if (e.key === 'Enter' && newCategory.trim()) {
                   await repo.addCategory(newCategory.trim())
-                  update('category', newCategory.trim())
+                  update('categories', [...recipe.categories, newCategory.trim()])
                   setNewCategory('')
                   setAddingCategory(false)
                   refreshCategories()
@@ -356,6 +386,20 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
             </Chip>
           )}
         </div>
+        {suggestedTags.length > 0 && (
+          <div className="mt-2.5">
+            <div className="text-[10.5px] font-semibold uppercase tracking-wider text-cream-soft">
+              Vorschläge aufgrund der Zutaten
+            </div>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {suggestedTags.map((t) => (
+                <Chip key={t} onClick={() => update('tags', [...recipe.tags, t])}>
+                  + {t}
+                </Chip>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-2.5 px-[18px] pt-4">

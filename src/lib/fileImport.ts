@@ -26,7 +26,11 @@ export function normalizeImportedRecipe(raw: Record<string, unknown>): Partial<R
     id: crypto.randomUUID(),
     title: String(raw.title ?? raw.name ?? 'Importiertes Rezept'),
     description: raw.description ? String(raw.description) : '',
-    category: raw.category ? String(raw.category) : 'Sonstiges',
+    categories: Array.isArray(raw.categories)
+      ? raw.categories.map(String).map((c) => c.trim()).filter(Boolean)
+      : raw.category
+        ? [String(raw.category)]
+        : ['Hauptgericht'],
     cuisine: raw.cuisine ? String(raw.cuisine) : undefined,
     tags: Array.isArray(raw.tags) ? raw.tags.map(String) : typeof raw.tags === 'string' ? raw.tags.split(/[;,]/).map((s) => s.trim()).filter(Boolean) : [],
     prepTimeMinutes: raw.prepTimeMinutes ? Number(raw.prepTimeMinutes) : undefined,

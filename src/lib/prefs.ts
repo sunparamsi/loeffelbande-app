@@ -79,3 +79,21 @@ export function getRecipeListOnlyMine(): boolean {
 export function setRecipeListOnlyMine(enabled: boolean) {
   localStorage.setItem(RECIPE_LIST_ONLY_MINE_KEY, enabled ? '1' : '0')
 }
+
+/** Erscheinungsbild-Präferenz (Hell/Dunkel/System). "system" wird bewusst
+ * NICHT als eigener Wert im localStorage abgelegt, sondern durch Fehlen des
+ * Schlüssels dargestellt - so entscheidet in dem Fall ausschließlich die
+ * CSS-Media-Query (prefers-color-scheme) in index.css, ohne dass sich JS und
+ * CSS widersprechen können. Siehe lib/theme.ts für die Anwendung. */
+export type ThemePref = 'system' | 'light' | 'dark'
+const THEME_KEY = 'loeffelbande-theme-pref'
+
+export function getThemePref(): ThemePref {
+  const v = localStorage.getItem(THEME_KEY)
+  return v === 'light' || v === 'dark' ? v : 'system'
+}
+
+export function setThemePref(pref: ThemePref) {
+  if (pref === 'system') localStorage.removeItem(THEME_KEY)
+  else localStorage.setItem(THEME_KEY, pref)
+}

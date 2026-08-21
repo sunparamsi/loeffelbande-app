@@ -6,8 +6,8 @@ import ConfirmModal from '../components/ConfirmModal'
 
 const ROLE_LABEL: Record<Role, string> = { owner: 'Besitzer', editor: 'Bearbeiter', viewer: 'Betrachter' }
 const ROLE_CLASS: Record<Role, string> = {
-  owner: 'text-rust border-rust bg-[color-mix(in_srgb,var(--color-rust)_12%,white)]',
-  editor: 'text-sage border-sage bg-[color-mix(in_srgb,var(--color-sage)_12%,white)]',
+  owner: 'text-rust border-rust bg-[color-mix(in_srgb,var(--color-rust)_12%,var(--color-bg))]',
+  editor: 'text-sage border-sage bg-[color-mix(in_srgb,var(--color-sage)_12%,var(--color-bg))]',
   viewer: 'text-cream-soft border-line bg-surface-2',
 }
 

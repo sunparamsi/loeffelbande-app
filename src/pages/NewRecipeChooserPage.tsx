@@ -5,7 +5,7 @@ import { ArrowLeftIcon, EditIcon, SearchIcon, CameraIcon, FileIcon, PdfIcon, Ins
 import { PrimaryButton, TextInput, TextArea } from '../components/ui'
 import { importFromUrl } from '../lib/urlImport'
 import { mergeOcrTexts } from '../lib/mergeOcrText'
-import { parseFreeText } from '../lib/textParse'
+import { parseFreeText, titleFromFilename } from '../lib/textParse'
 import { parseJsonFile, parseCsvFile } from '../lib/fileImport'
 import { getFileImportPref } from '../lib/prefs'
 import { useAuth } from '../lib/useAuth'
@@ -108,7 +108,10 @@ export default function NewRecipeChooserPage() {
       }
       setReviewSource('pdf')
       setReviewText(text.trim())
-      setReviewTitle(parseFreeText(text.trim()).title)
+      // Manche PDFs (z. B. Screenshot-Exporte aus anderen Apps) tragen den
+      // Rezeptnamen nirgends als Text auf der Seite - dann den Dateinamen als
+      // Titelvorschlag nehmen, statt das Titelfeld leer zu lassen.
+      setReviewTitle(parseFreeText(text.trim()).title || titleFromFilename(file.name))
       setReviewCoverImage(coverImageDataUrl ?? null)
       setPanel('review')
     } catch {
@@ -306,7 +309,7 @@ function ImportCard({
       onClick={onClick}
       className={`mx-[18px] mb-3 flex w-[calc(100%-36px)] ${children ? 'items-start' : 'items-center'} gap-3.5 rounded-2xl border bg-surface p-4 text-left shadow-card-sm ${highlight ? 'border-rust' : 'border-line'}`}
     >
-      <div className="flex h-[42px] w-[42px] flex-shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--color-rust)_12%,white)] text-rust">{icon}</div>
+      <div className="flex h-[42px] w-[42px] flex-shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--color-rust)_12%,var(--color-surface))] text-rust">{icon}</div>
       <div>
         <div className={children ? 'mb-0.5 text-sm font-bold text-cream' : 'text-sm font-bold text-cream'}>{title}</div>
         {children && <div className="text-[11.5px] leading-relaxed text-cream-soft">{children}</div>}

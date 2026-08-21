@@ -51,7 +51,7 @@ export default function ActivityPage() {
           onClick={a.recipeId ? () => navigate(`/rezepte/${a.recipeId}`) : undefined}
           className={`flex gap-3 border-b border-line px-[18px] py-3.5 ${a.recipeId ? 'cursor-pointer' : ''}`}
         >
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border-[1.5px] border-rust-solid bg-[color-mix(in_srgb,var(--color-rust)_14%,white)] text-[13px] font-bold text-rust">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border-[1.5px] border-rust-solid bg-[color-mix(in_srgb,var(--color-rust)_14%,var(--color-bg))] text-[13px] font-bold text-rust">
             {(a.fromMemberName ?? '?').slice(0, 1).toUpperCase()}
           </div>
           <div>
