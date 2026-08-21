@@ -333,6 +333,9 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
           {addingCategory ? (
             <input
               autoFocus
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
               value={newCategory}
               onChange={(e) => setNewCategory(e.target.value)}
               onKeyDown={async (e) => {
@@ -367,6 +370,9 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
           {addingTag ? (
             <input
               autoFocus
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
               value={newTag}
               onChange={(e) => setNewTag(e.target.value)}
               onKeyDown={(e) => {

@@ -100,6 +100,9 @@ export default function RecipeListPage() {
         <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-surface-2 px-4 py-2.5">
           <SearchIcon width={16} height={16} className="flex-shrink-0 text-cream-soft" />
           <input
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Rezept, Zutat oder Tag suchen…"

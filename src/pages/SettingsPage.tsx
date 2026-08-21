@@ -263,6 +263,9 @@ export default function SettingsPage() {
         <div className="mx-[18px] mb-2 rounded-[10px] border border-dashed border-rust px-3 py-2.5">
           <input
             autoFocus
+            autoCorrect="off"
+            autoCapitalize="words"
+            spellCheck={false}
             value={nameDraft}
             onChange={(e) => setNameDraft(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && saveName()}
@@ -332,6 +335,9 @@ export default function SettingsPage() {
       ))}
       <div className="mx-[18px] mb-2 flex items-center gap-2 rounded-[10px] border border-dashed border-rust px-3 py-2.5">
         <input
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
           value={newCat}
           onChange={(e) => setNewCat(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && addCategory()}

@@ -110,6 +110,16 @@ export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   const { className = '', ...rest } = props
   return (
     <input
+      // Autokorrektur/Rechtschreibprüfung standardmäßig aus: Zutatennamen,
+      // Mengen, Einheiten, Kategorie-/Tag-Namen etc. sind oft kurze, fremd-
+      // sprachige oder sonst "unübliche" Wörter (z. B. "Ei"), die iOS sonst
+      // munter durch ein ähnlich geschriebenes, aber falsches Wort ersetzt
+      // (siehe Bugreport: "Ei" wurde beim Tippen zu "Nein"). Über `{...rest}`
+      // weiterhin gezielt überschreibbar, falls ein einzelnes Feld das mal
+      // ausdrücklich braucht.
+      autoCorrect="off"
+      autoCapitalize="off"
+      spellCheck={false}
       {...rest}
       // twMerge statt reiner String-Konkatenation: verhindert, dass das fest
       // eingebaute "w-full" eine von außen übergebene Breite (z. B. "w-[62px]"

@@ -59,10 +59,11 @@ function round1(n: number): number {
  * älteren Imports mit "el"/"tl") korrekt dargestellt werden. */
 const UPPERCASE_UNITS: Record<string, string> = { el: 'EL', tl: 'TL' }
 
-/** Einheiten, die auf eine ausgeschriebene Form normalisiert werden, damit
- * unterschiedliche Schreibweisen aus Imports/Freitext einheitlich dargestellt
- * werden (z. B. die gängige Abkürzung "Pck"/"Pck." für "Packung"). */
-const EXPAND_UNITS: Record<string, string> = { pck: 'Packung', 'pck.': 'Packung', packung: 'Packung', packungen: 'Packung' }
+/** Einheiten, die auf eine einheitliche Abkürzung normalisiert werden, damit
+ * unterschiedliche Schreibweisen aus Imports/Freitext gleich dargestellt
+ * werden - "Packung"/"Packungen" bzw. "Pck." werden auf die kurze Form "Pck"
+ * normalisiert (statt ausgeschrieben), das ist die bevorzugte Darstellung. */
+const EXPAND_UNITS: Record<string, string> = { pck: 'Pck', 'pck.': 'Pck', packung: 'Pck', packungen: 'Pck' }
 
 /** Einheiten, die trotz kleingeschriebener Speicherung mit ihrer natürlichen
  * (groß geschriebenen) Form angezeigt werden sollen, z. B. "Prise"/"Prisen" -

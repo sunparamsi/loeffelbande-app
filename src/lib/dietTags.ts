@@ -32,13 +32,33 @@ const MEAT_FISH_KEYWORDS = [
 const OTHER_ANIMAL_KEYWORDS = [
   'milch', 'buttermilch', 'kondensmilch', 'sahne', 'rahm', 'schmand', 'crème fraîche',
   'creme fraiche', 'butter', 'käse', 'joghurt', 'quark', 'frischkäse', 'mascarpone', 'parmesan',
-  'mozzarella', 'feta', 'ricotta', 'eier', 'eigelb', 'eiweiß', 'honig',
+  'mozzarella', 'feta', 'ricotta', 'ei', 'eier', 'eigelb', 'eiweiß', 'honig',
 ]
 
 // Sehr kurze/mehrdeutige Stichwörter: nur bei exaktem Wort-Treffer werten
 // (nicht als Teilwort), da sie sonst in unverwandten Wörtern anschlagen
 // würden (z. B. "ei" in "Reis"/"Eis", "wild" in "Wildreis").
 const EXACT_ONLY_KEYWORDS = new Set(['ei', 'wild'])
+
+// Pflanzliche Alternativen zu Milchprodukten (Kokosmilch, Hafersahne,
+// Sojajoghurt, Cashewkäse, …) sollen NICHT als tierisches Milchprodukt
+// gewertet werden - sonst würde ein rein pflanzliches Gericht fälschlich von
+// "Vegan" auf "Vegetarisch" herabgestuft. Die betroffenen Wörter (milch,
+// sahne, joghurt, quark, käse) werden bewusst als Teilwort geprüft, um auch
+// echte Milchprodukt-Komposita wie "Buttermilch" oder "Frischkäse" zu
+// erkennen - das lässt sich also nicht einfach per exakter Wortübereinstimmung
+// lösen. Stattdessen werden bekannte pflanzliche Präfixe davor ausgeschlossen.
+const PLANT_BASED_PREFIXES = [
+  'kokos', 'kokosnuss', 'mandel', 'hafer', 'soja', 'reis', 'cashew', 'hanf',
+  'lupinen', 'dinkel', 'hasel', 'haselnuss', 'erbsen', 'nuss',
+]
+const DAIRY_SUBSTRING_KEYWORDS = new Set(['milch', 'sahne', 'joghurt', 'quark', 'käse'])
+
+function isPlantBasedException(token: string, keyword: string): boolean {
+  if (!DAIRY_SUBSTRING_KEYWORDS.has(keyword)) return false
+  const foldedKeyword = foldUmlauts(keyword)
+  return PLANT_BASED_PREFIXES.some((p) => token.includes(foldUmlauts(p) + foldedKeyword))
+}
 
 // Umlaute vereinheitlichen (ä/ö/ü/ß -> a/o/u/ss) UND die gängige
 // ASCII-Ersatzschreibweise dafür (ae/oe/ue -> a/o/u), auf beiden Seiten des
@@ -66,7 +86,7 @@ function tokensOf(ing: Ingredient): string[] {
 function matchesKeyword(tokens: string[], keyword: string): boolean {
   const folded = foldUmlauts(keyword)
   if (EXACT_ONLY_KEYWORDS.has(keyword)) return tokens.includes(folded)
-  return tokens.some((t) => t.includes(folded))
+  return tokens.some((t) => t.includes(folded) && !isPlantBasedException(t, keyword))
 }
 
 function hasAnyKeyword(ingredients: Ingredient[], keywords: string[]): boolean {
