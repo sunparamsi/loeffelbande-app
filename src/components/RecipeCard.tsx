@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { Recipe } from '../db/types'
 import { BookmarkIcon, BookmarkFilledIcon, ClockIcon } from '../icons'
 import { repo } from '../data'
+import { isVideoMedia } from '../lib/media'
 
 const TONES = [
   'linear-gradient(150deg,#ffd9b3,#ffb37a)',
@@ -49,7 +50,7 @@ function FavButton({ recipe, size = 'sm' }: { recipe: Recipe; size?: 'sm' | 'lg'
 
 export default function RecipeCard({ recipe }: { recipe: Recipe }) {
   const navigate = useNavigate()
-  const img = recipe.images[0]?.dataUrl
+  const img = recipe.images.find((m) => !isVideoMedia(m))?.dataUrl
   const bg = img ? undefined : toneFor(recipe.id)
   const t = timeLabel(recipe)
 
@@ -86,7 +87,7 @@ export function HeroRecipeCard({
   onClick?: () => void
 }) {
   const navigate = useNavigate()
-  const img = recipe.images[0]?.dataUrl
+  const img = recipe.images.find((m) => !isVideoMedia(m))?.dataUrl
   const bg = img ? undefined : toneFor(recipe.id)
 
   return (

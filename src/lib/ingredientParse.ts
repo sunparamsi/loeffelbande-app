@@ -1,5 +1,33 @@
 import type { Ingredient } from '../db/types'
-import { matchUnitWord, convertToMetric } from './units'
+import { matchUnitWord, convertToMetric, formatUnit } from './units'
+
+/**
+ * Ein paar Einheit+Name-Kombinationen liest man auf Deutsch natürlicher als
+ * ein einziges zusammengesetztes Wort statt als "Menge Einheit Name" – z. B.
+ * "Zehe(n) Knoblauch" -> "Knoblauchzehe(n)" oder "Scheibe(n) Brot" ->
+ * "Brotscheibe(n)". Wird nach der normalen Einheiten-Erkennung angewendet,
+ * verschiebt dafür den Namen in die zusammengesetzte Form und leert die
+ * Einheit.
+ *
+ * Bewusst als feste Zuordnungstabelle statt als automatisches Zusammensetzen
+ * beliebiger Wörter: deutsche Komposita brauchen oft ein Fugenzeichen (z. B.
+ * "Tomate" + "Scheibe" -> "Tomatenscheibe", nicht "Tomatescheibe"), das sich
+ * nicht zuverlässig algorithmisch herleiten lässt. Bei Bedarf hier einfach
+ * weitere Einheit/Name-Paare ergänzen.
+ */
+const COMPOUND_UNIT_NAMES: Record<string, Record<string, string>> = {
+  zehe: { knoblauch: 'Knoblauchzehe(n)' },
+  scheibe: { brot: 'Brotscheibe(n)' },
+}
+
+function normalizeCompoundUnit(unit: string, name: string): { unit: string; name: string } {
+  const stem = unit === 'zehen' ? 'zehe' : unit === 'scheiben' ? 'scheibe' : unit
+  const byName = COMPOUND_UNIT_NAMES[stem]
+  const lowerName = name.trim().toLowerCase()
+  const matchKey = byName && Object.keys(byName).find((key) => lowerName.startsWith(key))
+  if (matchKey) return { unit: '', name: byName[matchKey] }
+  return { unit, name }
+}
 
 /** Wandelt rohe Mengenangaben (inkl. Unicode-Bruchzeichen und deutschem
  * Dezimalkomma) in eine Zahl um. Zentral hier, da sowohl Freitext- als auch
@@ -31,7 +59,8 @@ export function parseIngredientLine(line: string): Ingredient {
   const matchedUnit = m ? matchUnitWord(m[2]) : null
   if (m && matchedUnit) {
     const { quantity, unit } = convertToMetric(parseQty(m[1]), matchedUnit)
-    return { id: crypto.randomUUID(), quantity, unit, name: m[3] }
+    const normalized = normalizeCompoundUnit(unit, m[3])
+    return { id: crypto.randomUUID(), quantity, unit: formatUnit(normalized.unit), name: normalized.name }
   }
   if (m && m[2] && !m[3]) {
     return { id: crypto.randomUUID(), quantity: parseQty(m[1]), unit: '', name: m[2] }

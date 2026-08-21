@@ -6,6 +6,9 @@ import { timeLabel } from '../components/RecipeCard'
 import { PrimaryButton, OutlineButton } from '../components/ui'
 import { useAuth } from '../lib/useAuth'
 import { canEditRecipe } from '../lib/recipePermissions'
+import { formatUnit } from '../lib/units'
+import { isVideoMedia } from '../lib/media'
+import MediaLightbox from '../components/MediaLightbox'
 import {
   ArrowLeftIcon,
   BookmarkIcon,
@@ -33,6 +36,7 @@ export default function RecipeDetailPage() {
   const [pingTo, setPingTo] = useState<string | null>(null)
   const [pingNote, setPingNote] = useState('')
   const [status, setStatus] = useState<string | null>(null)
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   // Namen (klein geschrieben), die bereits auf der Einkaufsliste stehen –
   // damit pro Zutat direkt sichtbar ist, ob sie schon hinzugefügt wurde,
   // statt das bei jedem Tap neu aus der DB nachzuschlagen.
@@ -105,7 +109,11 @@ export default function RecipeDetailPage() {
 
   const canEdit = canEditRecipe(recipe, authState)
 
-  const img = recipe.images[0]?.dataUrl
+  // Als Hero-Hintergrund (CSS background-image) taugt nur ein Foto, kein
+  // Video – falls das erste Medium ein Video ist, das erste Foto danach
+  // suchen (oder ganz ohne Bild den Farbverlauf zeigen).
+  const img = recipe.images.find((m) => !isVideoMedia(m))?.dataUrl
+  const hasMedia = recipe.images.length > 0
 
   return (
     <div className="pb-8">
@@ -119,6 +127,13 @@ export default function RecipeDetailPage() {
           className="absolute inset-0"
           style={{ background: 'linear-gradient(to top, rgba(15,9,4,0.75) 0%, rgba(15,9,4,0.15) 45%, transparent 62%)' }}
         />
+        {hasMedia && (
+          <button
+            onClick={() => setLightboxIndex(0)}
+            aria-label="Fotos/Videos ansehen"
+            className="absolute inset-0 z-[5]"
+          />
+        )}
         <button
           onClick={() => navigate(-1)}
           className="absolute left-4 top-4 z-10 flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white/92 text-cream shadow-card-sm"
@@ -133,7 +148,12 @@ export default function RecipeDetailPage() {
             <EditIcon width={16} height={16} />
           </button>
         )}
-        <div className="relative z-10 w-full px-[18px] pb-[26px]">
+        {recipe.images.length > 1 && (
+          <div className="absolute right-4 top-[58px] z-10 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white">
+            1 / {recipe.images.length}
+          </div>
+        )}
+        <div className="relative z-10 w-full px-[18px] pb-[26px]" style={{ pointerEvents: 'none' }}>
           <div className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: '#ffcfa8' }}>
             {[recipe.category, recipe.cuisine].filter(Boolean).join(' · ')}
           </div>
@@ -141,6 +161,8 @@ export default function RecipeDetailPage() {
           {recipe.createdByName && <div className="mt-1 text-[11px] font-semibold text-white/75">erstellt von {recipe.createdByName}</div>}
         </div>
       </div>
+
+      {lightboxIndex !== null && <MediaLightbox media={recipe.images} startIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} />}
 
       <div className="relative -mt-[22px] rounded-t-[22px] bg-bg px-[18px] pb-2 pt-[22px]">
         <button
@@ -187,8 +209,8 @@ export default function RecipeDetailPage() {
             <div key={ing.id} className="flex w-full items-center gap-3 py-2 text-left text-[13.5px] text-cream">
               <button onClick={() => toggleIngredient(ing.id)} className="flex min-w-0 flex-1 items-center gap-3">
                 <span className={`mx-[3px] h-[7px] w-[7px] flex-shrink-0 rounded-full ${isChecked ? 'bg-sage' : 'bg-cream-soft/50'}`} />
-                <span className="min-w-[58px] flex-shrink-0 font-semibold text-cream-soft" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {ing.quantity ? `${ing.quantity} ${ing.unit}` : ing.unit}
+                <span className="min-w-[58px] flex-shrink-0 text-right font-semibold text-cream-soft" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {ing.quantity ? `${ing.quantity} ${formatUnit(ing.unit)}` : formatUnit(ing.unit)}
                 </span>
                 <span className={`min-w-0 truncate ${isChecked ? 'text-cream-soft line-through' : ''}`}>
                   {ing.name}

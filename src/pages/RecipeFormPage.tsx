@@ -8,8 +8,11 @@ import ConfirmModal from '../components/ConfirmModal'
 import { useCategories } from '../lib/useCategories'
 import { useAuth } from '../lib/useAuth'
 import { fileToCompressedDataUrl } from '../lib/image'
+import { fileToVideoDataUrl, isVideoMedia } from '../lib/media'
 import { translateTexts } from '../lib/translate'
 import { canEditRecipe } from '../lib/recipePermissions'
+import { formatUnit } from '../lib/units'
+import { VideoIcon } from '../icons'
 
 function emptyRecipe(): Recipe {
   const now = Date.now()
@@ -49,6 +52,7 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const [loadedForEdit, setLoadedForEdit] = useState(mode !== 'edit')
   const [titleMissing, setTitleMissing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [mediaError, setMediaError] = useState<string | null>(null)
 
   useEffect(() => {
     if (mode === 'edit' && id) {
@@ -106,16 +110,32 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
   const onPickImages = async (files: FileList | null) => {
     if (!files) return
+    setMediaError(null)
     const newImages: RecipeImage[] = []
     for (const file of Array.from(files).slice(0, 6)) {
       try {
         const dataUrl = await fileToCompressedDataUrl(file)
-        newImages.push({ id: uid(), dataUrl })
+        newImages.push({ id: uid(), dataUrl, type: 'image' })
       } catch {
         /* Datei überspringen */
       }
     }
     update('images', [...recipe.images, ...newImages])
+  }
+
+  const onPickVideos = async (files: FileList | null) => {
+    if (!files) return
+    setMediaError(null)
+    const newVideos: RecipeImage[] = []
+    for (const file of Array.from(files).slice(0, 2)) {
+      try {
+        const dataUrl = await fileToVideoDataUrl(file)
+        newVideos.push({ id: uid(), dataUrl, type: 'video' })
+      } catch (e) {
+        setMediaError(e instanceof Error ? e.message : 'Video konnte nicht hinzugefügt werden.')
+      }
+    }
+    update('images', [...recipe.images, ...newVideos])
   }
 
   const addIngredient = () => update('ingredients', [...recipe.ingredients, { id: uid(), name: '', quantity: null, unit: '' }])
@@ -234,8 +254,18 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
       <div className="mx-[18px] mt-4 flex flex-wrap gap-2">
         {recipe.images.map((img) => (
-          <div key={img.id} className="relative h-[70px] w-[70px] overflow-hidden rounded-[10px]">
-            <img src={img.dataUrl} className="h-full w-full object-cover" alt="" />
+          <div key={img.id} className="relative h-[70px] w-[70px] overflow-hidden rounded-[10px] bg-surface-2">
+            {isVideoMedia(img) ? (
+              // eslint-disable-next-line jsx-a11y/media-has-caption
+              <video src={img.dataUrl} className="h-full w-full object-cover" muted playsInline />
+            ) : (
+              <img src={img.dataUrl} className="h-full w-full object-cover" alt="" />
+            )}
+            {isVideoMedia(img) && (
+              <div className="pointer-events-none absolute bottom-1 left-1 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white">
+                <VideoIcon width={9} height={9} />
+              </div>
+            )}
             <button
               onClick={() => update('images', recipe.images.filter((i) => i.id !== img.id))}
               className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-cream"
@@ -249,7 +279,13 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
           <span className="text-[9px]">Foto</span>
           <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => onPickImages(e.target.files)} />
         </label>
+        <label className="flex h-[70px] w-[70px] cursor-pointer flex-col items-center justify-center gap-1 rounded-[10px] border border-dashed border-line text-cream-soft">
+          <VideoIcon width={18} height={18} />
+          <span className="text-[9px]">Video</span>
+          <input type="file" accept="video/*" multiple className="hidden" onChange={(e) => onPickVideos(e.target.files)} />
+        </label>
       </div>
+      {mediaError && <div className="mx-[18px] mt-2 rounded-xl border border-rust/40 bg-rust/10 px-3.5 py-2.5 text-[11.5px] text-rust">{mediaError}</div>}
 
       <div className="px-[18px] pt-4">
         <FormLabel>Kurzbeschreibung</FormLabel>
@@ -371,7 +407,13 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
       {recipe.ingredients.map((ing) => (
         <div key={ing.id} className="mb-2 flex items-center gap-2 px-[18px]">
           <TextInput className="w-[62px] flex-shrink-0" value={ing.quantity ?? ''} onChange={(e) => updateIngredient(ing.id, { quantity: e.target.value ? Number(e.target.value) : null })} placeholder="250" />
-          <TextInput className="w-[62px] flex-shrink-0" value={ing.unit} onChange={(e) => updateIngredient(ing.id, { unit: e.target.value })} placeholder="g" />
+          <TextInput
+            className="w-[62px] flex-shrink-0"
+            value={ing.unit}
+            onChange={(e) => updateIngredient(ing.id, { unit: e.target.value })}
+            onBlur={(e) => updateIngredient(ing.id, { unit: formatUnit(e.target.value) })}
+            placeholder="g"
+          />
           <TextInput className="min-w-0 flex-1" value={ing.name} onChange={(e) => updateIngredient(ing.id, { name: e.target.value })} placeholder="Spaghetti" />
           <button onClick={() => removeIngredient(ing.id)} className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] border border-line text-cream-soft">
             <XIcon width={14} height={14} />

@@ -52,6 +52,19 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10
 }
 
+/** Einheiten, die als feste Abkürzung immer großgeschrieben werden (deutsche
+ * Konvention: "EL"/"TL" für Ess-/Teelöffel – anders als metrische Einheiten
+ * wie "g"/"ml"/"kg", die klein bleiben). Wird sowohl beim Parsen als auch bei
+ * der Anzeige angewendet, damit auch schon gespeicherte Rezepte (z. B. aus
+ * älteren Imports mit "el"/"tl") korrekt dargestellt werden. */
+const UPPERCASE_UNITS: Record<string, string> = { el: 'EL', tl: 'TL' }
+
+export function formatUnit(unit: string): string {
+  const trimmed = unit.trim()
+  const upper = UPPERCASE_UNITS[trimmed.toLowerCase()]
+  return upper ?? trimmed
+}
+
 /** Erkennt eine Einheit robuster als ein reiner UNIT_WORDS-Abgleich, indem
  * eine häufige OCR-/Foto-Scan-Verwechslung mitbehandelt wird: ein
  * groß-"I" wird beim Scannen oft mit einem klein-"l" verwechselt (beide

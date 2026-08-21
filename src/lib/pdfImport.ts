@@ -48,10 +48,19 @@ async function extractEmbeddedText(pdf: pdfjsLib.PDFDocumentProxy, onProgress?: 
   return pageTexts.join('\n\n')
 }
 
-/** Rendert eine PDF-Seite auf ein Canvas. Skalierung bewusst über der
- * Bildschirmauflösung (2,5x), das verbessert die OCR-Trefferquote spürbar. */
-async function renderPageCanvas(page: pdfjsLib.PDFPageProxy): Promise<HTMLCanvasElement> {
-  const viewport = page.getViewport({ scale: 2.5 })
+// Skalierung für die Texterkennung: bewusst über der Bildschirmauflösung
+// (2,5x), das verbessert die OCR-Trefferquote spürbar, ohne die Erkennung
+// unnötig zu verlangsamen.
+const OCR_RENDER_SCALE = 2.5
+// Eigene, höhere Skalierung nur fürs Titelbild (siehe extractCoverPhoto) –
+// die Seite wird dafür ein zweites Mal gerendert, damit das übernommene Foto
+// in bestmöglicher Auflösung vorliegt, ohne die (auf allen Seiten laufende)
+// Texterkennung durch generell größere Bilder zu verlangsamen.
+const COVER_PHOTO_RENDER_SCALE = 4.5
+
+/** Rendert eine PDF-Seite auf ein Canvas. */
+async function renderPageCanvas(page: pdfjsLib.PDFPageProxy, scale: number = OCR_RENDER_SCALE): Promise<HTMLCanvasElement> {
+  const viewport = page.getViewport({ scale })
   const canvas = document.createElement('canvas')
   canvas.width = Math.ceil(viewport.width)
   canvas.height = Math.ceil(viewport.height)
@@ -83,9 +92,13 @@ function canvasToImageFile(canvas: HTMLCanvasElement, name: string): Promise<Fil
  * (Foto) zu durchgehend "flach" (Text/UI) – das ist die Unterkante des
  * Titelbilds. Nur wenn dieser Übergang in einem plausiblen Bereich liegt
  * (nicht direkt am Anfang, nicht fast die ganze Seite), wird ein Titelbild
- * angenommen.
+ * angenommen. Danach wird zusätzlich innerhalb dieser Zeilen links/rechts
+ * nach demselben Prinzip geschnitten – manche Quellen zentrieren das Foto in
+ * einem breiteren, einfarbigen (z. B. schwarzen) Rahmen; ohne diesen zweiten
+ * Schnitt würde dieser Rahmen als hässlicher Rand mit ins Titelbild
+ * übernommen.
  */
-function detectTopPhotoBand(canvas: HTMLCanvasElement): { y0: number; y1: number } | null {
+function detectPhotoBounds(canvas: HTMLCanvasElement): { x0: number; y0: number; x1: number; y1: number } | null {
   const ctx = canvas.getContext('2d')
   if (!ctx) return null
   const { width, height } = canvas
@@ -93,7 +106,8 @@ function detectTopPhotoBand(canvas: HTMLCanvasElement): { y0: number; y1: number
 
   const SAT_THRESHOLD = 0.09
   const SUSTAIN_ROWS = 24
-  const SAMPLE_STEP_X = 4
+  const SUSTAIN_COLS = 16
+  const SAMPLE_STEP = 4
 
   let imageData: ImageData
   try {
@@ -103,19 +117,22 @@ function detectTopPhotoBand(canvas: HTMLCanvasElement): { y0: number; y1: number
   }
   const { data } = imageData
 
+  const satAt = (x: number, y: number): number => {
+    const i = (y * width + x) * 4
+    const r = data[i]
+    const g = data[i + 1]
+    const b = data[i + 2]
+    const max = Math.max(r, g, b)
+    const min = Math.min(r, g, b)
+    return max > 0 ? (max - min) / max : 0
+  }
+
   const rowSat = new Float32Array(height)
   for (let y = 0; y < height; y++) {
     let sum = 0
     let n = 0
-    const rowStart = y * width * 4
-    for (let x = 0; x < width; x += SAMPLE_STEP_X) {
-      const i = rowStart + x * 4
-      const r = data[i]
-      const g = data[i + 1]
-      const b = data[i + 2]
-      const max = Math.max(r, g, b)
-      const min = Math.min(r, g, b)
-      sum += max > 0 ? (max - min) / max : 0
+    for (let x = 0; x < width; x += SAMPLE_STEP) {
+      sum += satAt(x, y)
       n++
     }
     rowSat[y] = n > 0 ? sum / n : 0
@@ -143,15 +160,85 @@ function detectTopPhotoBand(canvas: HTMLCanvasElement): { y0: number; y1: number
   // nichts zum Erkennen übrig.
   if (heightFrac < 0.05 || heightFrac > 0.85) return null
 
-  return { y0: 0, y1: transitionY }
+  // Auch ganz oben kann ein schmaler einfarbiger Rand sitzen (z. B. ein
+  // schwarzer Steg über dem eigentlichen Foto) – von oben nach dem ersten
+  // sustained-farbigen Bereich suchen, statt y0 einfach bei 0 zu belassen.
+  let y0 = 0
+  let ySreak = 0
+  for (let y = 0; y < transitionY; y++) {
+    if (rowSat[y] >= SAT_THRESHOLD) {
+      ySreak++
+      if (ySreak === SUSTAIN_ROWS) {
+        y0 = y - SUSTAIN_ROWS + 1
+        break
+      }
+    } else {
+      ySreak = 0
+    }
+  }
+  if (transitionY - y0 < height * 0.03) y0 = 0
+
+  // Links/rechts innerhalb der erkannten Fotozeilen (y0..transitionY) nach
+  // demselben Sättigungs-Prinzip einengen, um einfarbige Ränder (z. B.
+  // schwarze Balken links/rechts) herauszuschneiden.
+  const colSat = new Float32Array(width)
+  for (let x = 0; x < width; x++) {
+    let sum = 0
+    let n = 0
+    for (let y = y0; y < transitionY; y += SAMPLE_STEP) {
+      sum += satAt(x, y)
+      n++
+    }
+    colSat[x] = n > 0 ? sum / n : 0
+  }
+
+  let x0 = 0
+  let streak = 0
+  for (let x = 0; x < width; x++) {
+    if (colSat[x] >= SAT_THRESHOLD) {
+      streak++
+      if (streak === SUSTAIN_COLS) {
+        x0 = x - SUSTAIN_COLS + 1
+        break
+      }
+    } else {
+      streak = 0
+    }
+  }
+
+  let x1 = width
+  streak = 0
+  for (let x = width - 1; x >= 0; x--) {
+    if (colSat[x] >= SAT_THRESHOLD) {
+      streak++
+      if (streak === SUSTAIN_COLS) {
+        x1 = x + SUSTAIN_COLS
+        break
+      }
+    } else {
+      streak = 0
+    }
+  }
+
+  // Nur übernehmen, wenn dabei ein plausibel großer Bereich übrig bleibt –
+  // sonst (z. B. Fehlmessung) lieber die volle Breite behalten, statt das
+  // Foto kaputt zu schneiden.
+  if (x1 - x0 < width * 0.3) {
+    x0 = 0
+    x1 = width
+  }
+
+  return { x0, y0, x1, y1: transitionY }
 }
 
-function cropCanvas(source: HTMLCanvasElement, y0: number, y1: number): HTMLCanvasElement {
+function cropCanvas(source: HTMLCanvasElement, x0: number, y0: number, x1: number, y1: number): HTMLCanvasElement {
+  const w = Math.max(1, x1 - x0)
+  const h = Math.max(1, y1 - y0)
   const out = document.createElement('canvas')
-  out.width = source.width
-  out.height = Math.max(1, y1 - y0)
+  out.width = w
+  out.height = h
   const ctx = out.getContext('2d')
-  if (ctx) ctx.drawImage(source, 0, y0, source.width, y1 - y0, 0, 0, source.width, y1 - y0)
+  if (ctx) ctx.drawImage(source, x0, y0, w, h, 0, 0, w, h)
   return out
 }
 
@@ -165,22 +252,45 @@ function blankRegion(canvas: HTMLCanvasElement, y0: number, y1: number) {
 }
 
 /** Versucht, aus der ersten Seite ein Titelbild zu gewinnen – rein bildbasiert
- * (siehe detectTopPhotoBand), daher unabhängig davon, ob die PDF eingebetteten
+ * (siehe detectPhotoBounds), daher unabhängig davon, ob die PDF eingebetteten
  * Text hat oder per OCR gelesen werden muss. Fehler hier sind bewusst nicht
  * fatal: ein nicht gefundenes Titelbild darf den eigentlichen Text-Import
  * nie verhindern. Gibt zusätzlich das (ggf. bereits gerenderte) Canvas der
- * ersten Seite zurück, damit es beim OCR-Fallback wiederverwendet werden
- * kann, statt die Seite ein zweites Mal zu rendern. */
+ * ersten Seite (in OCR-Auflösung) zurück, damit es beim OCR-Fallback
+ * wiederverwendet werden kann, statt die Seite dafür ein zweites Mal zu
+ * rendern. Das Titelbild selbst wird für die Übernahme ins Rezept separat in
+ * höherer Auflösung gerendert (siehe COVER_PHOTO_RENDER_SCALE), damit es
+ * nicht unnötig unscharf aus der (fürs OCR-Tempo kleiner gehaltenen)
+ * Standardauflösung stammt. */
 async function extractCoverPhoto(pdf: pdfjsLib.PDFDocumentProxy): Promise<{ canvas: HTMLCanvasElement | null; band: { y0: number; y1: number } | null; dataUrl?: string }> {
   try {
     const page1 = await pdf.getPage(1)
     const canvas = await renderPageCanvas(page1)
-    const band = detectTopPhotoBand(canvas)
-    if (!band) return { canvas, band: null }
-    const cropped = cropCanvas(canvas, band.y0, band.y1)
+    const bounds = detectPhotoBounds(canvas)
+    if (!bounds) return { canvas, band: null }
+
+    // Für ein schärferes Titelbild die Seite separat in höherer Auflösung
+    // rendern und die erkannten Grenzen proportional umrechnen, statt aus
+    // dem (kleineren) OCR-Canvas hochzuskalieren.
+    const scaleFactor = COVER_PHOTO_RENDER_SCALE / OCR_RENDER_SCALE
+    const hiResCanvas = await renderPageCanvas(page1, COVER_PHOTO_RENDER_SCALE)
+    const cropped = cropCanvas(
+      hiResCanvas,
+      Math.round(bounds.x0 * scaleFactor),
+      Math.round(bounds.y0 * scaleFactor),
+      Math.round(bounds.x1 * scaleFactor),
+      Math.round(bounds.y1 * scaleFactor),
+    )
     const file = await canvasToImageFile(cropped, 'titelbild.png')
-    const dataUrl = await fileToCompressedDataUrl(file, 1280, 0.75)
-    return { canvas, band, dataUrl }
+    // Höheres Limit + Qualität als der allgemeine Bild-Upload (dort geht es
+    // um Fotos aus der Handykamera, hier um ein bereits kleines PDF-Element) –
+    // "höchstmögliche Auflösung" im Rahmen dessen, was die PDF hergibt.
+    const dataUrl = await fileToCompressedDataUrl(file, 2600, 0.92)
+    // Fürs Ausblenden vor der Texterkennung bewusst immer ab 0 blanken (nicht
+    // erst ab bounds.y0) – ein schmaler Rand über dem eigentlichen Foto soll
+    // zwar nicht mit ins Titelbild, aber trotzdem nicht versehentlich als
+    // Text erkannt werden.
+    return { canvas, band: { y0: 0, y1: bounds.y1 }, dataUrl }
   } catch {
     return { canvas: null, band: null }
   }

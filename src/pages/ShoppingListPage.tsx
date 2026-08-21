@@ -5,6 +5,7 @@ import type { ShoppingListItem, Recipe } from '../db/types'
 import { CheckIcon, TrashIcon } from '../icons'
 import { TextInput, PrimaryButton } from '../components/ui'
 import GroceryAddDock from '../components/GroceryAddDock'
+import { formatUnit } from '../lib/units'
 
 export default function ShoppingListPage() {
   const [items, setItems] = useState<ShoppingListItem[]>([])
@@ -162,7 +163,7 @@ function Row({
         <div className="mt-0.5 text-[11px] text-cream-soft">{fromLabel}</div>
       </div>
       <div className="text-[12px] text-cream-soft">
-        {item.quantity ?? ''} {item.unit}
+        {item.quantity ?? ''} {formatUnit(item.unit)}
       </div>
       <button
         onClick={(e) => {

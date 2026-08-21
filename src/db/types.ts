@@ -19,6 +19,9 @@ export interface RecipeImage {
   id: string
   /** Base64 data URL, lokal in IndexedDB gespeichert */
   dataUrl: string
+  /** Fehlt bei älteren, vor Einführung von Video gespeicherten Einträgen ->
+   * dann als 'image' behandeln (siehe isVideoMedia in lib/media.ts). */
+  type?: 'image' | 'video'
 }
 
 export interface RecipeLink {

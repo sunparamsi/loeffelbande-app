@@ -1,5 +1,6 @@
 import type { Ingredient, Recipe, RecipeStep } from '../db/types'
 import { parseIngredientLine } from './ingredientParse'
+import { formatUnit } from './units'
 
 function toIngredient(raw: unknown): Ingredient {
   if (typeof raw === 'string') {
@@ -10,7 +11,7 @@ function toIngredient(raw: unknown): Ingredient {
     return parseIngredientLine(raw)
   }
   const r = raw as Partial<Ingredient>
-  return { id: crypto.randomUUID(), name: r.name ?? '', quantity: r.quantity ?? null, unit: r.unit ?? '', note: r.note }
+  return { id: crypto.randomUUID(), name: r.name ?? '', quantity: r.quantity ?? null, unit: formatUnit(r.unit ?? ''), note: r.note }
 }
 
 function toStep(raw: unknown): RecipeStep {

@@ -4,6 +4,7 @@ import { repo } from '../data'
 import type { Recipe } from '../db/types'
 import { XIcon, SunIcon, PlusIcon, CheckIcon } from '../icons'
 import { getWakeLockPref } from '../lib/prefs'
+import { formatUnit } from '../lib/units'
 import { PrimaryButton, OutlineButton } from '../components/ui'
 
 export default function CookModePage() {
@@ -116,7 +117,7 @@ export default function CookModePage() {
           <div className="hide-scrollbar flex gap-1.5 overflow-x-auto">
             {recipe.ingredients.map((ing) => (
               <div key={ing.id} className="flex-shrink-0 rounded-full border border-line bg-surface px-3 py-1.5 text-[11px] text-cream-soft shadow-card-sm">
-                {ing.quantity ? `${ing.quantity} ${ing.unit} ` : ''}
+                {ing.quantity ? `${ing.quantity} ${formatUnit(ing.unit)} ` : ''}
                 {ing.name}
               </div>
             ))}

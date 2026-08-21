@@ -55,3 +55,4 @@ export const LevelIcon = (p: IconProps) => base(<path d="M5 19V10M12 19V5M19 19v
 export const FilterIcon = (p: IconProps) => base(<><path d="M4 6h16M8 12h12M11 18h9" /><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none" /><circle cx="8" cy="18" r="1.6" fill="currentColor" stroke="none" /></>, p)
 export const LeafIcon = (p: IconProps) => base(<path d="M8 2c0 3-2 4-2 7a3 3 0 0 0 6 0c0-3-2-4-2-7" />, p)
 export const LogoMarkIcon = (p: IconProps) => base(<><path d="M8 2c0 3-2 4-2 7a3 3 0 0 0 6 0c0-3-2-4-2-7" /><path d="M9 13v9" /><path d="M17 3v7a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V3" /><path d="M19 12v10" /></>, p)
+export const VideoIcon = (p: IconProps) => base(<><rect x="3" y="6" width="13" height="12" rx="2" /><path d="m16 10.5 5-3v9l-5-3Z" /></>, p)
