@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { repo } from '../data'
-import { ArrowLeftIcon, EditIcon, SearchIcon, CameraIcon, FileIcon, PdfIcon, InstagramIcon } from '../icons'
+import { ArrowLeftIcon, EditIcon, SearchIcon, CameraIcon, FileIcon, PdfIcon } from '../icons'
 import { PrimaryButton, TextInput, TextArea } from '../components/ui'
 import { importFromUrl } from '../lib/urlImport'
 import { mergeOcrTexts } from '../lib/mergeOcrText'
@@ -11,7 +11,7 @@ import { getFileImportPref } from '../lib/prefs'
 import { useAuth } from '../lib/useAuth'
 import type { Recipe } from '../db/types'
 
-type Panel = null | 'url' | 'file' | 'social' | 'review'
+type Panel = null | 'url' | 'file' | 'review'
 type ReviewSource = 'photo' | 'pdf'
 
 export default function NewRecipeChooserPage() {
@@ -22,10 +22,6 @@ export default function NewRecipeChooserPage() {
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
-  const [socialUrl, setSocialUrl] = useState('')
-  const [socialText, setSocialText] = useState('')
-  const [socialTitle, setSocialTitle] = useState('')
-  const [socialTitleTouched, setSocialTitleTouched] = useState(false)
   const [reviewText, setReviewText] = useState('')
   const [reviewTitle, setReviewTitle] = useState('')
   const [reviewSource, setReviewSource] = useState<ReviewSource>('photo')
@@ -153,27 +149,6 @@ export default function NewRecipeChooserPage() {
     }
   }
 
-  const onSocialTextChange = (value: string) => {
-    setSocialText(value)
-    // Solange der Titel nicht selbst bearbeitet wurde, live einen Vorschlag
-    // aus dem eingefügten Text ableiten (ändert sich der Text, ändert sich
-    // auch der Vorschlag) – sobald der Nutzer den Titel selbst anfasst, wird
-    // dieser nicht mehr überschrieben.
-    if (!socialTitleTouched) setSocialTitle(parseFreeText(value).title)
-  }
-
-  const doSocialImport = () => {
-    const { ingredients, steps } = parseFreeText(socialText)
-    const title = socialTitle.trim()
-    goToForm({
-      ...(title ? { title } : {}),
-      ingredients,
-      steps,
-      links: socialUrl ? [{ id: crypto.randomUUID(), label: 'Instagram', url: socialUrl }] : [],
-      sourceUrl: socialUrl || undefined,
-    })
-  }
-
   const doReviewImport = () => {
     const { ingredients, steps } = parseFreeText(reviewText)
     const title = reviewTitle.trim()
@@ -232,30 +207,6 @@ export default function NewRecipeChooserPage() {
           </ImportCard>
           <input ref={fileInputRef} type="file" accept=".json,.csv" className="hidden" onChange={(e) => e.target.files?.[0] && doFileImport(e.target.files[0])} />
         </>
-      )}
-
-      <ImportCard icon={<InstagramIcon width={20} height={20} />} title="Aus Social Media" onClick={() => setPanel(panel === 'social' ? null : 'social')}>
-        Link + Bildunterschrift einfügen
-      </ImportCard>
-      {panel === 'social' && (
-        <div className="mx-[18px] mb-3 rounded-2xl border border-line bg-surface p-4 shadow-card-sm">
-          <TextInput value={socialUrl} onChange={(e) => setSocialUrl(e.target.value)} placeholder="Link zum Beitrag (optional)" className="mb-2.5" />
-          <TextArea rows={5} value={socialText} onChange={(e) => onSocialTextChange(e.target.value)} placeholder="Bildunterschrift/Text hier einfügen…" />
-          <div className="mt-2.5">
-            <div className="mb-1 text-[11px] font-bold text-cream">Titel{!socialTitle.trim() && ' (nicht erkannt – bitte eintragen)'}</div>
-            <TextInput
-              value={socialTitle}
-              onChange={(e) => {
-                setSocialTitleTouched(true)
-                setSocialTitle(e.target.value)
-              }}
-              placeholder="Titel des Rezepts…"
-            />
-          </div>
-          <PrimaryButton className="mt-3 w-full" onClick={doSocialImport}>
-            Übernehmen
-          </PrimaryButton>
-        </div>
       )}
 
       {panel === 'review' && (

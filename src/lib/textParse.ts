@@ -1,7 +1,7 @@
 import type { Ingredient, RecipeStep } from '../db/types'
 import { UNIT_WORDS } from './units'
 import { isJunkStepLine } from './stepClean'
-import { parseIngredientLine } from './ingredientParse'
+import { parseIngredientLines, extractGroupHeaderName } from './ingredientParse'
 
 // Nur am Zeilenanfang geprüft (\b statt $), damit auch Überschriften mit
 // Zusatzinfo auf derselben Zeile erkannt werden (z. B. "Zutaten (4 Portionen)"
@@ -9,11 +9,14 @@ import { parseIngredientLine } from './ingredientParse'
 // Foto-PDF entsteht, wenn ein Personen-Icon daneben als Zahl mitgelesen wird).
 const INGREDIENTS_HEADER_RE = /^(ingredients?|zutaten(liste)?)\b/i
 const METHOD_HEADER_RE = /^(method|instructions?|directions?|zubereitung|anweisung(en)?|schritte|preparation|steps?)\b/i
-// Kurze Zwischenüberschriften innerhalb der Zutaten-/Zubereitungsliste
-// (z. B. "For the pastry", "To finish", "Zum Garnieren") – bewusst eng
-// gefasst (kurz, nur Buchstaben), damit ein echter Schritt wie "For the
-// last 5 minutes, stir occasionally." nicht versehentlich verschluckt wird.
-const SUB_HEADER_RE = /^(for the [a-zäöüß\s]{2,25}|für (den|die|das) [a-zäöüß\s]{2,25}|to finish|garnish(es)?|topping[s]?|serving suggestion|zum servieren|zum garnieren|for garnishing|to serve)\s*:?$/i
+// Kurze Zwischenüberschriften innerhalb der Zutaten-/Zubereitungsliste (z. B.
+// "For the pastry", "To finish", "Zum Garnieren", "Basilikum-Sauce:") werden
+// über extractGroupHeaderName() (ingredientParse.ts) erkannt. Innerhalb der
+// Zutatenzone werden sie NICHT mehr verworfen, sondern als Ingredient.
+// groupName für die nachfolgenden Zutaten übernommen (Unterrezept-
+// Unterstützung, siehe parseIngredientLines()); innerhalb der Zubereitung
+// (stepZone) und für die Titel-Erkennung dienen sie weiterhin nur dazu, die
+// Zeile NICHT als Schritt/Titel zu behandeln.
 
 /**
  * Heuristische Vorstrukturierung von eingefügtem Freitext (Social-Media-
@@ -50,11 +53,11 @@ export function parseFreeText(text: string): { title: string; ingredients: Ingre
 
   if (methodHeaderIdx >= 0) {
     const ingredientZone = lines.slice(ingredientsHeaderIdx >= 0 ? ingredientsHeaderIdx + 1 : 0, methodHeaderIdx)
-    const stepZone = lines.slice(methodHeaderIdx + 1).filter((l) => !SUB_HEADER_RE.test(l) && !isJunkStepLine(l))
+    const stepZone = lines.slice(methodHeaderIdx + 1).filter((l) => !extractGroupHeaderName(l) && !isJunkStepLine(l))
 
-    const ingredients = splitMergedIngredientLines(reflowIngredientLines(ingredientZone.filter((l) => !SUB_HEADER_RE.test(l))))
-      .map(parseIngredientLine)
-      .filter((i) => i.name.trim().length > 0)
+    const ingredients = parseIngredientLines(splitMergedIngredientLines(reflowIngredientLines(ingredientZone))).filter(
+      (i) => i.name.trim().length > 0,
+    )
     const steps = reflowStepLines(stepZone).map((l) => ({ id: crypto.randomUUID(), text: l.replace(/^\d+[.)]\s*/, '') }))
 
     return { title, ingredients, steps }
@@ -73,8 +76,15 @@ export function parseFreeText(text: string): { title: string; ingredients: Ingre
     const hasUnit = UNIT_WORDS.some((u) => new RegExp(`\\b${escapeRegExp(u)}\\b`, 'i').test(lower))
     const looksLikeStepNumber = /^\d+[.)]\s/.test(line)
     const isLong = line.length > 70
+    // Eine erkannte Abschnittsüberschrift ("For the sauce") gehört inhaltlich
+    // zur Zutatenliste (siehe parseIngredientLines(), das solche Zeilen
+    // wieder herausfiltert und stattdessen als Gruppenname übernimmt) - nicht
+    // in die Zubereitung.
+    const isGroupHeader = !!extractGroupHeaderName(line)
 
-    if (looksLikeStepNumber || isLong) {
+    if (isGroupHeader) {
+      ingredientLines.push(line)
+    } else if (looksLikeStepNumber || isLong) {
       rawStepLines.push(line)
     } else if (startsWithNumber || hasUnit) {
       ingredientLines.push(line)
@@ -83,9 +93,7 @@ export function parseFreeText(text: string): { title: string; ingredients: Ingre
     }
   }
 
-  const ingredients = splitMergedIngredientLines(ingredientLines)
-    .map(parseIngredientLine)
-    .filter((i) => i.name.trim().length > 0)
+  const ingredients = parseIngredientLines(splitMergedIngredientLines(ingredientLines)).filter((i) => i.name.trim().length > 0)
   const steps = reflowStepLines(rawStepLines).map((l) => ({ id: crypto.randomUUID(), text: l.replace(/^\d+[.)]\s*/, '') }))
 
   return { title, ingredients, steps }
@@ -201,7 +209,7 @@ function countChar(s: string, ch: string): number {
 /** Grobe Prüfung, ob eine Zeile als Rezepttitel taugt: keine Abschnitts-
  * überschrift, keine Zutatenzeile (führende Zahl) und nicht zu lang. */
 function looksLikeTitle(line: string): boolean {
-  if (INGREDIENTS_HEADER_RE.test(line) || METHOD_HEADER_RE.test(line) || SUB_HEADER_RE.test(line)) return false
+  if (INGREDIENTS_HEADER_RE.test(line) || METHOD_HEADER_RE.test(line) || extractGroupHeaderName(line)) return false
   if (/^[\d½¼¾⅓⅔]/.test(line)) return false
   if (line.length > 90) return false
   if (isJunkStepLine(line)) return false

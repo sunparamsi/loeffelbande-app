@@ -1,5 +1,5 @@
 import type { Ingredient, Recipe, RecipeStep } from '../db/types'
-import { parseIngredientLine } from './ingredientParse'
+import { parseIngredientLine, parseIngredientLines } from './ingredientParse'
 import { formatUnit } from './units'
 
 function toIngredient(raw: unknown): Ingredient {
@@ -11,7 +11,16 @@ function toIngredient(raw: unknown): Ingredient {
     return parseIngredientLine(raw)
   }
   const r = raw as Partial<Ingredient>
-  return { id: crypto.randomUUID(), name: r.name ?? '', quantity: r.quantity ?? null, unit: formatUnit(r.unit ?? ''), note: r.note }
+  return { id: crypto.randomUUID(), name: r.name ?? '', quantity: r.quantity ?? null, unit: formatUnit(r.unit ?? ''), note: r.note, groupName: r.groupName }
+}
+
+/** Liste roher Zutaten-Strings (JSON/CSV-Import) in Ingredient[] umwandeln.
+ * Läuft über parseIngredientLines() (statt einzeln über toIngredient), damit
+ * eingestreute Abschnitts-Überschriften wie "For the Basil Sauce" erkannt und
+ * als Ingredient.groupName der nachfolgenden Zutaten übernommen werden -
+ * dieselbe Unterrezept-Unterstützung wie bei URL-/Freitext-Import. */
+function toIngredientsFromStrings(lines: string[]): Ingredient[] {
+  return parseIngredientLines(lines)
 }
 
 function toStep(raw: unknown): RecipeStep {
@@ -38,9 +47,11 @@ export function normalizeImportedRecipe(raw: Record<string, unknown>): Partial<R
     servings: raw.servings ? Number(raw.servings) : undefined,
     difficulty: raw.difficulty as Recipe['difficulty'],
     ingredients: Array.isArray(raw.ingredients)
-      ? raw.ingredients.map(toIngredient)
+      ? raw.ingredients.every((x) => typeof x === 'string')
+        ? toIngredientsFromStrings(raw.ingredients as string[])
+        : raw.ingredients.map(toIngredient)
       : typeof raw.ingredients === 'string'
-        ? raw.ingredients.split(/[;|\n]/).map((s) => s.trim()).filter(Boolean).map(toIngredient)
+        ? toIngredientsFromStrings(raw.ingredients.split(/[;|\n]/).map((s) => s.trim()).filter(Boolean))
         : [],
     steps: Array.isArray(raw.steps)
       ? raw.steps.map(toStep)

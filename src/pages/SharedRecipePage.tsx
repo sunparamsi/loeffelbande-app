@@ -5,6 +5,7 @@ import type { Recipe } from '../db/types'
 import { timeLabel } from '../components/RecipeCard'
 import { Chip } from '../components/ui'
 import { formatCategories } from '../lib/recipeCategories'
+import { segmentIngredients } from '../lib/ingredientGroups'
 
 export default function SharedRecipePage() {
   const { token } = useParams()
@@ -60,10 +61,17 @@ export default function SharedRecipePage() {
         {recipe.description && <p className="mt-4 text-[13.5px] leading-relaxed text-cream-soft">{recipe.description}</p>}
 
         <h2 className="mt-6 mb-3 text-[17px] font-bold text-cream">Zutaten</h2>
-        {recipe.ingredients.map((ing) => (
-          <div key={ing.id} className="flex items-center gap-2.5 border-b border-line py-2.5 text-[13.5px] text-cream">
-            <div className="min-w-[62px] font-medium text-cream-soft">{ing.quantity ? `${ing.quantity} ${ing.unit}` : ing.unit}</div>
-            <div>{ing.name}</div>
+        {segmentIngredients(recipe.ingredients).map((seg, segIdx) => (
+          <div key={seg.groupName ?? `main-${segIdx}`}>
+            {seg.groupName && (
+              <div className={`text-[11.5px] font-bold uppercase tracking-wide text-rust ${segIdx === 0 ? 'pb-1.5' : 'pb-1.5 pt-3'}`}>{seg.groupName}</div>
+            )}
+            {seg.items.map((ing) => (
+              <div key={ing.id} className="flex items-center gap-2.5 border-b border-line py-2.5 text-[13.5px] text-cream">
+                <div className="min-w-[62px] font-medium text-cream-soft">{ing.quantity ? `${ing.quantity} ${ing.unit}` : ing.unit}</div>
+                <div>{ing.name}</div>
+              </div>
+            ))}
           </div>
         ))}
 

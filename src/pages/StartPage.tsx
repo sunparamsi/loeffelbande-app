@@ -6,6 +6,7 @@ import { currentSeason } from '../lib/season'
 import type { Recipe, ActivityPing } from '../db/types'
 import TopBar from '../components/TopBar'
 import RecipeCard, { HeroRecipeCard } from '../components/RecipeCard'
+import SeasonalCarousel from '../components/SeasonalCarousel'
 import { PlusIcon, CartIcon } from '../icons'
 
 export default function StartPage() {
@@ -41,7 +42,7 @@ export default function StartPage() {
   // Vom aktuell angemeldeten Mitglied selbst erstellte Rezepte - nur relevant
   // im Haushalt-/Cloud-Modus mit mehreren Mitgliedern (im lokalen Solo-Modus
   // gibt es keine currentUserId, die Section bleibt dann einfach leer/aus).
-  const myRecipes = authState?.currentUserId ? newest.filter((r) => r.createdByUserId === authState.currentUserId).slice(0, 4) : []
+  const myRecipes = authState?.currentUserId ? newest.filter((r) => r.createdByUserId === authState.currentUserId).slice(0, 2) : []
 
   const name = authState?.currentMemberName ?? 'Koch:in'
 
@@ -76,17 +77,15 @@ export default function StartPage() {
 
       {featured && (
         <>
-          <SectionHeader eyebrow={featuredIsSeasonal ? `Passend zum ${season.label}` : 'Für dich entdeckt'} onSeeAll={() => navigate('/rezepte')} />
+          <SectionHeader eyebrow={featuredIsSeasonal ? `Passend zum ${season.label}` : 'Für dich entdeckt'} onSeeAll={() => navigate('/rezepte?filter=Alle')} />
           {featuredIsSeasonal && seasonal.length > 1 ? (
-            // Mehrere saisonal passende Rezepte -> durchslidebare Reihe statt
-            // nur einer einzelnen Karte (auf maximal 5 begrenzt, damit die
-            // Reihe nicht ausufert).
-            <div className="hide-scrollbar mb-6 flex snap-x snap-mandatory gap-3 overflow-x-auto px-[18px] pb-1">
-              {seasonal.slice(0, 5).map((r) => (
-                <div key={r.id} className="w-[85%] flex-shrink-0 snap-start">
-                  <HeroRecipeCard recipe={r} badge="Saisonal" />
-                </div>
-              ))}
+            // Mehrere saisonal passende Rezepte -> automatisch weiterschal-
+            // tendes Karussell statt einer frei scrollbaren Kartenreihe (bei
+            // der links das nächste Rezept schon angeschnitten hereinragte
+            // und dadurch nicht mit dem restlichen Seiten-Layout bündig war)
+            // - auf maximal 5 begrenzt, damit die Runde nicht ausufert.
+            <div className="mb-6 px-[18px]">
+              <SeasonalCarousel recipes={seasonal.slice(0, 5)} badge="Saisonal" />
             </div>
           ) : (
             <div className="mb-6 px-[18px]">
@@ -98,7 +97,7 @@ export default function StartPage() {
 
       {gridRecipes.length > 0 && (
         <>
-          <SectionHeader eyebrow="Neueste Rezepte" onSeeAll={() => navigate('/rezepte')} />
+          <SectionHeader eyebrow="Neueste Rezepte" onSeeAll={() => navigate('/rezepte?filter=Alle')} />
           <div className="grid grid-cols-2 gap-3 px-[18px] pb-6">
             {gridRecipes.map((r) => (
               <RecipeCard key={r.id} recipe={r} />
@@ -109,7 +108,7 @@ export default function StartPage() {
 
       {myRecipes.length > 0 && (
         <>
-          <SectionHeader eyebrow="Deine Rezepte" onSeeAll={() => navigate('/rezepte')} />
+          <SectionHeader eyebrow="Deine Rezepte" onSeeAll={() => navigate('/rezepte?filter=Alle')} />
           <div className="grid grid-cols-2 gap-3 px-[18px] pb-6">
             {myRecipes.map((r) => (
               <RecipeCard key={r.id} recipe={r} />

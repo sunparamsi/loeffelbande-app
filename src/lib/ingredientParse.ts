@@ -70,3 +70,81 @@ export function parseIngredientLine(line: string): Ingredient {
   }
   return { id: crypto.randomUUID(), quantity: null, unit: '', name: line }
 }
+
+// Einleitende Wendungen, die selbst NICHT Teil der angezeigten Überschrift
+// sein sollen ("For the Basil Sauce" -> Überschrift nur "Basil Sauce") - der
+// nachfolgende Teil muss mit einem Buchstaben beginnen (\p{L}), damit z. B.
+// "For 4 servings" (Mengenangabe, keine Komponenten-Überschrift) nicht
+// fälschlich matcht.
+const GROUP_HEADER_PREFIX_RE = /^(for the|for|für (den|die|das)|zutaten für)\s+(\p{L}.*)$/iu
+// Eigenständige Überschriften-Wendungen, die selbst schon der vollständige
+// Anzeigename sind (kein Bezugswort danach zu entfernen).
+const GROUP_HEADER_STANDALONE_RE =
+  /^(to finish|garnish(es)?|topping[s]?|serving suggestion|zum servieren|zum garnieren|to serve|filling|füllung|belag|dressing|marinade)$/i
+
+/**
+ * Erkennt Zeilen, die statt einer echten Zutat eine Abschnitts-Überschrift
+ * innerhalb der Zutatenliste sind (z. B. "For the Basil Sauce", "Für die
+ * Sauce", "Basilikum-Sauce:") - typisch für Rezepte, die aus mehreren
+ * Komponenten/Unterrezepten bestehen (Hauptgericht + Sauce/Füllung/Topping
+ * etc., siehe z. B. https://www.inspiredwithatwist.com/home/pistachiocrustedsalmon/
+ * mit Haupt-Zutaten + separatem "Basil Sauce"-Abschnitt). Gibt bei Erkennung
+ * den bereinigten Gruppennamen zurück (einleitende Wendungen wie "For the"/
+ * "Für die" werden dabei entfernt, sodass die Überschrift nur "Basil Sauce"
+ * statt "For the Basil Sauce" lautet), sonst null.
+ *
+ * Drei Muster: (a) bekannte einleitende Wendungen mit Bezugswort danach -
+ * das Bezugswort wird zum Gruppennamen, die Wendung selbst entfällt: (b)
+ * eigenständige Wendungen, die schon für sich der volle Anzeigename sind
+ * (z. B. "To Finish"); (c) eine kurze, für sich stehende Zeile, die NUR mit
+ * einem Doppelpunkt endet und weder Komma noch Semikolon enthält (z. B.
+ * "Basilikum-Sauce:") - viele Rezept-Plugins (z. B. WP Recipe Maker) geben
+ * Abschnittsnamen in der exportierten Zutatenliste genau so aus, eingebettet
+ * in eine ansonsten flache Liste von Zutatenzeilen (schema.org kennt für
+ * Zutaten-Gruppen kein eigenes Feld). Bewusst kurz gehalten (max. 40 Zeichen,
+ * keine Zahl am Anfang), damit eine echte Zutat mit Doppelpunkt (kommt
+ * praktisch nicht vor) nicht fälschlich als Überschrift erkannt wird.
+ */
+export function extractGroupHeaderName(line: string): string | null {
+  const trimmed = line.trim()
+  if (!trimmed || trimmed.length > 40) return null
+  if (/^[\d½¼¾⅓⅔]/.test(trimmed)) return null // beginnt mit Menge -> echte Zutat
+  const withoutColon = trimmed.replace(/:\s*$/, '').trim()
+  if (!withoutColon) return null
+  const prefixMatch = withoutColon.match(GROUP_HEADER_PREFIX_RE)
+  if (prefixMatch) return capitalizeGroupName(prefixMatch[3].trim())
+  if (GROUP_HEADER_STANDALONE_RE.test(withoutColon)) return capitalizeGroupName(withoutColon)
+  if (/:$/.test(trimmed) && !/[,;]/.test(withoutColon) && withoutColon.split(/\s+/).length <= 5) {
+    return capitalizeGroupName(withoutColon)
+  }
+  return null
+}
+
+function capitalizeGroupName(s: string): string {
+  return s.replace(/^\p{L}/u, (c) => c.toUpperCase())
+}
+
+/**
+ * Zerlegt eine geordnete Liste roher Zutatenzeilen (Freitext-, URL- oder
+ * Datei-Import) in Ingredient[] und erkennt dabei Abschnitts-Überschriften
+ * (siehe extractGroupHeaderName) - diese werden NICHT selbst als Zutat
+ * übernommen, sondern als Ingredient.groupName an alle nachfolgenden Zeilen
+ * bis zur nächsten Überschrift (oder dem Ende der Liste) angehängt. Zentral
+ * hier gepflegt (statt separat in jedem Importweg), aus demselben Grund wie
+ * parseIngredientLine() selbst: einheitliches Verhalten überall.
+ */
+export function parseIngredientLines(lines: string[]): Ingredient[] {
+  const result: Ingredient[] = []
+  let currentGroup: string | undefined
+  for (const line of lines) {
+    const groupName = extractGroupHeaderName(line)
+    if (groupName) {
+      currentGroup = groupName
+      continue
+    }
+    const ing = parseIngredientLine(line)
+    if (currentGroup) ing.groupName = currentGroup
+    result.push(ing)
+  }
+  return result
+}

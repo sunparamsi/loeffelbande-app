@@ -1,6 +1,6 @@
 import type { Ingredient, Recipe, RecipeStep } from '../db/types'
 import { isJunkStepLine, stripInjectedContent } from './stepClean'
-import { parseIngredientLine } from './ingredientParse'
+import { parseIngredientLines } from './ingredientParse'
 import { fileToCompressedDataUrl } from './image'
 
 /**
@@ -114,7 +114,12 @@ export async function importFromUrl(url: string): Promise<Partial<Recipe> | null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const n = node as any
 
-  const rawIngredients: Ingredient[] = (n.recipeIngredient ?? n.ingredients ?? []).map((line: string) => parseIngredientLine(String(line)))
+  // parseIngredientLines() erkennt dabei auch eingestreute Abschnitts-
+  // Überschriften wie "For the Basil Sauce" (typisch für Rezepte, die aus
+  // mehreren Komponenten/Unterrezepten bestehen, z. B. WP-Recipe-Maker-artige
+  // Plugins) und übernimmt sie als Ingredient.groupName statt sie als
+  // sinnlose "Zutat ohne Menge" durchrutschen zu lassen.
+  const rawIngredients: Ingredient[] = parseIngredientLines((n.recipeIngredient ?? n.ingredients ?? []).map((line: unknown) => String(line)))
 
   // Manche Seiten liefern kaputte/inkonsistente Rezept-Strukturdaten (das
   // eingebettete JSON-LD stimmt nicht mit dem sichtbaren Text der Seite

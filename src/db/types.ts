@@ -8,6 +8,15 @@ export interface Ingredient {
   quantity: number | null
   unit: string
   note?: string
+  /** Optionaler Name der Zutaten-Gruppe/des Unterrezepts, zu der/dem diese
+   * Zutat gehört (z. B. "Für die Basilikum-Sauce") - für Rezepte, die aus
+   * mehreren Komponenten bestehen (Hauptgericht + Sauce/Füllung/Topping
+   * etc.). Fehlt das Feld oder ist es leer, gehört die Zutat zur namenlosen
+   * "Haupt"-Gruppe ohne eigene Überschrift. Zusammengehörige Zutaten müssen
+   * im Array direkt aufeinanderfolgen (siehe segmentIngredients() in
+   * lib/ingredientGroups.ts, das genau diese Annahme nutzt) - wird beim
+   * Bearbeiten im Formular automatisch so gehalten. */
+  groupName?: string
 }
 
 export interface RecipeStep {

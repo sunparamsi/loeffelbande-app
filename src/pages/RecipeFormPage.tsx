@@ -14,6 +14,7 @@ import { canEditRecipe } from '../lib/recipePermissions'
 import { formatUnit } from '../lib/units'
 import { suggestDietTags } from '../lib/dietTags'
 import { suggestExistingTags } from '../lib/tagSuggest'
+import { segmentIngredients, ingredientGroupName } from '../lib/ingredientGroups'
 import { VideoIcon } from '../icons'
 
 function emptyRecipe(): Recipe {
@@ -160,10 +161,65 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
     update('images', [...recipe.images, ...newVideos])
   }
 
-  const addIngredient = () => update('ingredients', [...recipe.ingredients, { id: uid(), name: '', quantity: null, unit: '' }])
+  // Zutaten können in benannte Abschnitte/Unterrezepte gruppiert sein (z. B.
+  // "Für die Sauce" bei einem Rezept mit Hauptgericht + Sauce) - siehe
+  // Ingredient.groupName (db/types.ts) und segmentIngredients() (lib/
+  // ingredientGroups.ts). Damit das im Array sinnvoll bleibt, müssen Zutaten
+  // derselben Gruppe direkt aufeinanderfolgen; addIngredient() fügt eine neue
+  // Zutat deshalb gezielt an der richtigen Stelle ein statt immer ans Ende.
+  const ingredientSegments = useMemo(() => segmentIngredients(recipe.ingredients), [recipe.ingredients])
+
+  const addIngredient = (groupName?: string) => {
+    const newIng: Ingredient = { id: uid(), name: '', quantity: null, unit: '', groupName }
+    if (groupName === undefined) {
+      // Namenlose Hauptgruppe: direkt vor dem ersten benannten Abschnitt
+      // einfügen (oder ganz ans Ende, falls es noch keinen gibt) - so bleiben
+      // ungruppierte Zutaten oben, benannte Abschnitte darunter.
+      const firstGroupedIdx = recipe.ingredients.findIndex((i) => ingredientGroupName(i) !== undefined)
+      const insertAt = firstGroupedIdx === -1 ? recipe.ingredients.length : firstGroupedIdx
+      const next = [...recipe.ingredients]
+      next.splice(insertAt, 0, newIng)
+      update('ingredients', next)
+    } else {
+      // Benannter Abschnitt: direkt nach der letzten Zutat dieses Abschnitts
+      // einfügen, damit die Gruppe zusammenhängend bleibt.
+      let lastIdxOfGroup = -1
+      recipe.ingredients.forEach((i, idx) => {
+        if (ingredientGroupName(i) === groupName) lastIdxOfGroup = idx
+      })
+      const insertAt = lastIdxOfGroup === -1 ? recipe.ingredients.length : lastIdxOfGroup + 1
+      const next = [...recipe.ingredients]
+      next.splice(insertAt, 0, newIng)
+      update('ingredients', next)
+    }
+  }
   const updateIngredient = (iid: string, patch: Partial<Ingredient>) =>
     update('ingredients', recipe.ingredients.map((i) => (i.id === iid ? { ...i, ...patch } : i)))
   const removeIngredient = (iid: string) => update('ingredients', recipe.ingredients.filter((i) => i.id !== iid))
+
+  // Neuen, leeren Abschnitt anlegen (mit eindeutigem Vorschlagsnamen) und
+  // gleich die erste Zutat dafür anlegen - ein Abschnitt ohne Zutaten ergibt
+  // sich in diesem Modell nicht von selbst (siehe segmentIngredients()), da
+  // Gruppen rein aus den Zutaten selbst abgeleitet werden.
+  const addSection = () => {
+    const existing = new Set(recipe.ingredients.map((i) => ingredientGroupName(i)).filter(Boolean))
+    let name = 'Abschnitt'
+    let n = 2
+    while (existing.has(name)) {
+      name = `Abschnitt ${n}`
+      n++
+    }
+    addIngredient(name)
+  }
+  // Alle Zutaten eines Abschnitts umbenennen (sie teilen sich denselben
+  // groupName-String).
+  const renameGroup = (oldName: string, newName: string) =>
+    update('ingredients', recipe.ingredients.map((i) => (ingredientGroupName(i) === oldName ? { ...i, groupName: newName } : i)))
+  // Abschnitt entfernen, OHNE die Zutaten selbst zu löschen - sie werden nur
+  // ungruppiert (weniger destruktiv; einzelne Zutaten lassen sich bei Bedarf
+  // weiterhin über ihr eigenes X entfernen).
+  const ungroupSection = (name: string) =>
+    update('ingredients', recipe.ingredients.map((i) => (ingredientGroupName(i) === name ? { ...i, groupName: undefined } : i)))
 
   const addStep = () => update('steps', [...recipe.steps, { id: uid(), text: '' }])
   const updateStep = (sid: string, text: string) => update('steps', recipe.steps.map((s) => (s.id === sid ? { ...s, text } : s)))
@@ -454,24 +510,59 @@ export default function RecipeFormPage({ mode }: { mode: 'create' | 'edit' }) {
       </div>
 
       <h2 className="mx-[18px] mb-3 mt-6 text-[17px] font-bold text-cream">Zutaten</h2>
-      {recipe.ingredients.map((ing) => (
-        <div key={ing.id} className="mb-2 flex items-center gap-2 px-[18px]">
-          <TextInput className="w-[62px] flex-shrink-0" value={ing.quantity ?? ''} onChange={(e) => updateIngredient(ing.id, { quantity: e.target.value ? Number(e.target.value) : null })} placeholder="250" />
-          <TextInput
-            className="w-[62px] flex-shrink-0"
-            value={ing.unit}
-            onChange={(e) => updateIngredient(ing.id, { unit: e.target.value })}
-            onBlur={(e) => updateIngredient(ing.id, { unit: formatUnit(e.target.value) })}
-            placeholder="g"
-          />
-          <TextInput className="min-w-0 flex-1" value={ing.name} onChange={(e) => updateIngredient(ing.id, { name: e.target.value })} placeholder="Spaghetti" />
-          <button onClick={() => removeIngredient(ing.id)} className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] border border-line text-cream-soft">
-            <XIcon width={14} height={14} />
+      {ingredientSegments.map((seg, segIdx) => (
+        <div key={seg.groupName ?? `__main_${segIdx}`}>
+          {seg.groupName && (
+            <div className="mx-[18px] mb-2 mt-4 flex items-center gap-2">
+              <input
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                value={seg.groupName}
+                onChange={(e) => renameGroup(seg.groupName!, e.target.value)}
+                placeholder="Abschnittsname…"
+                className="min-w-0 flex-1 border-b border-dashed border-rust bg-transparent py-1 text-[12px] font-bold uppercase tracking-wide text-rust focus:outline-none"
+              />
+              <button
+                onClick={() => ungroupSection(seg.groupName!)}
+                aria-label={`Abschnitt „${seg.groupName}" entfernen`}
+                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-line text-cream-soft"
+              >
+                <XIcon width={12} height={12} />
+              </button>
+            </div>
+          )}
+          {seg.items.map((ing) => (
+            <div key={ing.id} className="mb-2 flex items-center gap-2 px-[18px]">
+              <TextInput className="w-[62px] flex-shrink-0" value={ing.quantity ?? ''} onChange={(e) => updateIngredient(ing.id, { quantity: e.target.value ? Number(e.target.value) : null })} placeholder="250" />
+              <TextInput
+                className="w-[62px] flex-shrink-0"
+                value={ing.unit}
+                onChange={(e) => updateIngredient(ing.id, { unit: e.target.value })}
+                onBlur={(e) => updateIngredient(ing.id, { unit: formatUnit(e.target.value) })}
+                placeholder="g"
+              />
+              <TextInput className="min-w-0 flex-1" value={ing.name} onChange={(e) => updateIngredient(ing.id, { name: e.target.value })} placeholder="Spaghetti" />
+              <button onClick={() => removeIngredient(ing.id)} className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] border border-line text-cream-soft">
+                <XIcon width={14} height={14} />
+              </button>
+            </div>
+          ))}
+          <button
+            onClick={() => addIngredient(seg.groupName)}
+            className="mx-[18px] mb-2 flex w-[calc(100%-36px)] items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-rust py-2.5 text-xs font-bold text-rust"
+          >
+            <PlusIcon width={14} height={14} /> Zutat{seg.groupName ? ` zu „${seg.groupName}"` : ''} hinzufügen
           </button>
         </div>
       ))}
-      <button onClick={addIngredient} className="mx-[18px] mb-2 flex w-[calc(100%-36px)] items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-rust py-2.5 text-xs font-bold text-rust">
-        <PlusIcon width={14} height={14} /> Zutat hinzufügen
+      {recipe.ingredients.length === 0 && (
+        <button onClick={() => addIngredient()} className="mx-[18px] mb-2 flex w-[calc(100%-36px)] items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-rust py-2.5 text-xs font-bold text-rust">
+          <PlusIcon width={14} height={14} /> Zutat hinzufügen
+        </button>
+      )}
+      <button onClick={addSection} className="mx-[18px] mb-2 flex w-[calc(100%-36px)] items-center justify-center gap-1.5 rounded-[10px] border border-line py-2.5 text-xs font-bold text-cream-soft">
+        <PlusIcon width={14} height={14} /> Abschnitt hinzufügen (z. B. „Für die Sauce")
       </button>
 
       <h2 className="mx-[18px] mb-3 mt-6 text-[17px] font-bold text-cream">Zubereitung</h2>

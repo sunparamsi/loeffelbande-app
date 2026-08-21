@@ -8,6 +8,7 @@ import { useAuth } from '../lib/useAuth'
 import { canEditRecipe } from '../lib/recipePermissions'
 import { formatUnit } from '../lib/units'
 import { formatCategories } from '../lib/recipeCategories'
+import { segmentIngredients } from '../lib/ingredientGroups'
 import { isVideoMedia } from '../lib/media'
 import MediaLightbox from '../components/MediaLightbox'
 import {
@@ -203,34 +204,41 @@ export default function RecipeDetailPage() {
             <div className="rounded-lg bg-surface-2 px-2.5 py-1 text-[11.5px] font-bold text-cream-soft">{recipe.servings} Portionen</div>
           ) : null}
         </div>
-        {recipe.ingredients.map((ing) => {
-          const isChecked = checked.has(ing.id)
-          const onList = shoppingNames.has(ing.name.toLowerCase())
-          return (
-            <div key={ing.id} className="flex w-full items-center gap-3 py-2 text-left text-[13.5px] text-cream">
-              <button onClick={() => toggleIngredient(ing.id)} className="flex min-w-0 flex-1 items-center gap-3">
-                <span className={`mx-[3px] h-[7px] w-[7px] flex-shrink-0 rounded-full ${isChecked ? 'bg-sage' : 'bg-cream-soft/50'}`} />
-                <span className="min-w-[58px] flex-shrink-0 text-right font-semibold text-cream-soft" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {ing.quantity ? `${ing.quantity} ${formatUnit(ing.unit)}` : formatUnit(ing.unit)}
-                </span>
-                <span className={`min-w-0 truncate ${isChecked ? 'text-cream-soft line-through' : ''}`}>
-                  {ing.name}
-                  {ing.note && <span className="text-cream-soft"> ({ing.note})</span>}
-                </span>
-              </button>
-              <button
-                onClick={() => addIngredientToShoppingList(ing)}
-                disabled={onList}
-                aria-label={onList ? `${ing.name} ist bereits auf der Einkaufsliste` : `${ing.name} zur Einkaufsliste hinzufügen`}
-                className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border ${
-                  onList ? 'border-sage bg-sage text-bg' : 'border-line text-cream-soft'
-                }`}
-              >
-                {onList ? <CheckIcon width={11} height={11} /> : <PlusIcon width={12} height={12} />}
-              </button>
-            </div>
-          )
-        })}
+        {segmentIngredients(recipe.ingredients).map((seg, segIdx) => (
+          <div key={seg.groupName ?? `main-${segIdx}`}>
+            {seg.groupName && (
+              <div className={`mb-1 text-[11.5px] font-bold uppercase tracking-wide text-rust ${segIdx === 0 ? '' : 'mt-3'}`}>{seg.groupName}</div>
+            )}
+            {seg.items.map((ing) => {
+              const isChecked = checked.has(ing.id)
+              const onList = shoppingNames.has(ing.name.toLowerCase())
+              return (
+                <div key={ing.id} className="flex w-full items-center gap-3 py-2 text-left text-[13.5px] text-cream">
+                  <button onClick={() => toggleIngredient(ing.id)} className="flex min-w-0 flex-1 items-center gap-3">
+                    <span className={`mx-[3px] h-[7px] w-[7px] flex-shrink-0 rounded-full ${isChecked ? 'bg-sage' : 'bg-cream-soft/50'}`} />
+                    <span className="min-w-[58px] flex-shrink-0 text-right font-semibold text-cream-soft" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {ing.quantity ? `${ing.quantity} ${formatUnit(ing.unit)}` : formatUnit(ing.unit)}
+                    </span>
+                    <span className={`min-w-0 truncate ${isChecked ? 'text-cream-soft line-through' : ''}`}>
+                      {ing.name}
+                      {ing.note && <span className="text-cream-soft"> ({ing.note})</span>}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => addIngredientToShoppingList(ing)}
+                    disabled={onList}
+                    aria-label={onList ? `${ing.name} ist bereits auf der Einkaufsliste` : `${ing.name} zur Einkaufsliste hinzufügen`}
+                    className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border ${
+                      onList ? 'border-sage bg-sage text-bg' : 'border-line text-cream-soft'
+                    }`}
+                  >
+                    {onList ? <CheckIcon width={11} height={11} /> : <PlusIcon width={12} height={12} />}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        ))}
         {recipe.ingredients.length === 0 && <div className="text-[12.5px] text-cream-soft">Keine Zutaten hinterlegt.</div>}
 
         {recipe.ingredients.length > 0 && (

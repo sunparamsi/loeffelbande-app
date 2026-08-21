@@ -5,6 +5,7 @@ import type { Recipe } from '../db/types'
 import { XIcon, SunIcon, PlusIcon, CheckIcon } from '../icons'
 import { getWakeLockPref } from '../lib/prefs'
 import { formatUnit } from '../lib/units'
+import { segmentIngredients } from '../lib/ingredientGroups'
 import { PrimaryButton, OutlineButton } from '../components/ui'
 
 export default function CookModePage() {
@@ -115,12 +116,21 @@ export default function CookModePage() {
             </button>
           </div>
           <div className="hide-scrollbar flex gap-1.5 overflow-x-auto">
-            {recipe.ingredients.map((ing) => (
-              <div key={ing.id} className="flex-shrink-0 rounded-full border border-line bg-surface px-3 py-1.5 text-[11px] text-cream-soft shadow-card-sm">
-                {ing.quantity ? `${ing.quantity} ${formatUnit(ing.unit)} ` : ''}
-                {ing.name}
-              </div>
-            ))}
+            {segmentIngredients(recipe.ingredients).flatMap((seg, segIdx) => [
+              ...(seg.groupName
+                ? [
+                    <div key={`h-${segIdx}`} className="flex flex-shrink-0 items-center rounded-full bg-rust-solid px-3 py-1.5 text-[11px] font-bold text-white">
+                      {seg.groupName}
+                    </div>,
+                  ]
+                : []),
+              ...seg.items.map((ing) => (
+                <div key={ing.id} className="flex-shrink-0 rounded-full border border-line bg-surface px-3 py-1.5 text-[11px] text-cream-soft shadow-card-sm">
+                  {ing.quantity ? `${ing.quantity} ${formatUnit(ing.unit)} ` : ''}
+                  {ing.name}
+                </div>
+              )),
+            ])}
           </div>
         </div>
       )}
